@@ -2,7 +2,7 @@ import { LoginForm } from "./LoginForm";
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-cloud p-6">
+    <main className="flex min-h-screen items-center justify-center bg-page p-4 sm:p-6">
       <LoginForm />
     </main>
   );

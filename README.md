@@ -1,16 +1,18 @@
-# SignSeal Pricing Assist
+# SignSeal IQ
 
-Internal pricing, quotation and job-profitability tool for SignSeal Ltd.
+Internal pricing and business management for SignSeal Ltd.
 
-This application is a Next.js App Router application using TypeScript, Tailwind CSS, Prisma and MariaDB/MySQL. It is designed to sit before QuickBooks: it calculates and explains prices, stores quote/job profitability data, and prepares integration points without pretending external systems are configured.
+This application is a Next.js App Router application using TypeScript, Tailwind CSS, Prisma ORM and MariaDB/MySQL. Prisma is the application data-access and migration layer; MariaDB remains the production database. SignSeal IQ sits before QuickBooks: it calculates and explains prices, stores quote/job profitability data, and prepares integration points without pretending external systems are configured.
 
 ## Implemented Scope
 
 - Login-required internal app with server-side sessions and role foundations.
-- Dashboard, New Price, Quotes, Customers, Jobs, Pricing Matrix, Materials, Labour Rates, Suppliers, Settings and Reports.
+- Dashboard, New Price, Quotes, Customers, Jobs, Pricing Matrix, Materials, Labour Rates, Suppliers, Reports and Settings.
+- Dark-mode-first SignSeal IQ interface with the official logo and persisted Dark/Light/System appearance preference.
 - Deterministic pricing engine covering material markup, labour, outsourced production, travel, wastage, contingency, risk, rush/weekend/difficult-access premiums, discounts, VAT, gross profit, gross margin and effective hourly return.
 - Transparent pricing breakdown and manual override validation.
 - Editable Prisma schema for users, customers, quotes, quote versions, quote costs, jobs, job costs, materials, suppliers, labour rates, pricing rules, pricing matrix, AI recommendations, settings, attachments and audit logs.
+- Initial Prisma migration for safe future `prisma migrate deploy` usage.
 - Seed data for labour rates, pricing rules and pricing matrix examples.
 - Optional server-side OpenAI Pricing Advisor using the Responses API with Zod validation.
 - QuickBooks integration boundary and settings status behind `QUICKBOOKS_ENABLED`.
@@ -21,6 +23,7 @@ This application is a Next.js App Router application using TypeScript, Tailwind 
 Main files:
 
 - `prisma/schema.prisma` - relational database schema for MariaDB/MySQL.
+- `prisma/migrations/20260714182000_initial_schema/migration.sql` - initial migration generated from the current schema.
 - `prisma/seed.ts` - editable starter rules, rates and matrix examples.
 - `src/lib/pricing/engine.ts` - deterministic pricing source of truth.
 - `src/lib/openai/advisor.ts` - optional AI advisor service.
@@ -29,6 +32,7 @@ Main files:
 - `src/app/(app)` - authenticated app areas.
 - `src/app/api/pricing/calculate` - server-side calculation endpoint.
 - `src/app/api/ai/pricing-advisor` - server-side AI endpoint.
+- `scripts/deploy-production.sh` - tracked example production deployment script.
 
 ## Environment
 
@@ -45,7 +49,7 @@ QB_ENCRYPTION_KEY=""
 VAT_RATE="0.20"
 ```
 
-Do not commit `.env` files.
+Do not commit `.env` files. Do not expose the MariaDB port publicly.
 
 ## Development Setup
 
@@ -70,7 +74,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-Production:
+New empty production database:
 
 ```bash
 npm ci
@@ -79,6 +83,25 @@ npm run db:deploy
 npm run build
 npm run start
 ```
+
+Existing production database baseline:
+
+1. Take a full MariaDB backup before doing anything.
+2. Confirm the existing production schema matches `prisma/schema.prisma`.
+3. Do not run `prisma migrate reset` in production.
+4. If the schema already exists and matches this initial migration, mark it as applied:
+
+```bash
+npx prisma migrate resolve --applied 20260714182000_initial_schema
+```
+
+After the baseline is recorded, future deployments can safely use:
+
+```bash
+npx prisma migrate deploy
+```
+
+If the production schema does not match the migration, stop and create a deliberate follow-up migration. Do not silently change or reset production data.
 
 ## Default Admin Creation
 
@@ -93,17 +116,48 @@ npm run admin:create
 
 ## Production Deployment Behind Plesk/Nginx
 
-1. Provision a MariaDB database and user.
-2. Set all environment variables in Plesk or the process manager.
-3. Run `npm ci`.
-4. Run `npm run db:generate`.
-5. Run `npm run db:deploy`.
-6. Run `npm run build`.
-7. Start with `npm run start` or a process manager that runs `next start`.
-8. Configure Nginx/Plesk reverse proxy to the Node process, typically port `3000`.
-9. Ensure HTTPS is enabled so secure cookies are used in production.
+Production currently deploys from:
 
-Docker deployment:
+```bash
+/var/www/vhosts/sign-seal.co.uk/iq.sign-seal.co.uk/deploy.sh
+```
+
+PM2 settings:
+
+- Application name: `signseal-iq`
+- Node interpreter: `/root/.nvm/versions/node/v22.23.1/bin/node`
+- Production port: `3001`
+- Next.js output: `standalone`
+
+The application should remain bound behind the Plesk/Nginx reverse proxy. Do not open port `3001` publicly.
+
+The deployment process should:
+
+1. Pull/reset to `origin/main`.
+2. Run `npm ci`.
+3. Generate the Prisma client.
+4. Apply database schema updates with `prisma migrate deploy` after the production database has been baselined.
+5. Build the application.
+6. Copy `.next/static` into `.next/standalone/.next/static`.
+7. Copy `public` into `.next/standalone/public`.
+8. Restart the `signseal-iq` PM2 process.
+9. Save the PM2 process list.
+
+A tracked example script is included:
+
+```bash
+bash scripts/deploy-production.sh
+```
+
+Because production deploys as `root` while files are owned by the Plesk domain user, Git may require:
+
+```bash
+git config --global --add safe.directory /var/www/vhosts/sign-seal.co.uk/iq.sign-seal.co.uk
+```
+
+The preferred future approach is to run deployments under a dedicated deployment user or the Plesk domain user rather than `root`.
+
+Docker deployment for local or isolated environments:
 
 ```bash
 docker compose up -d --build

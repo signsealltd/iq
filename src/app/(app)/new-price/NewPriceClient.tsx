@@ -136,7 +136,7 @@ export function NewPriceClient() {
             <Field label="Equipment hire"><input type="number" value={input.equipmentHire} onChange={(e) => setNumber("equipmentHire", e.target.value)} /></Field>
           </div>
         </div>
-        <div className="sticky bottom-0 flex flex-wrap gap-2 border border-line bg-white p-3 shadow-panel">
+        <div className="sticky bottom-0 flex flex-wrap gap-2 border border-line bg-panel p-3 shadow-panel">
           <button className="button" onClick={calculate}><Calculator size={16} /> Calculate</button>
           <button className="button-secondary" onClick={askAdvisor} disabled={!result}><Bot size={16} /> Ask Pricing Advisor</button>
           {message ? <p className="self-center text-sm text-amber">{message}</p> : null}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, PoundSterling, Plus, TrendingUp } from "lucide-react";
 import { QuoteStatus } from "@prisma/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Stat } from "@/components/Stat";
@@ -27,37 +27,45 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Current quote pipeline, margin health and recent activity."
+        description="Quote pipeline, margin health and recent pricing activity."
         action={<Link className="button" href="/new-price"><Plus size={16} /> New Price</Link>}
       />
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Awaiting approval" value={String(awaiting)} />
-        <Stat label="Accepted this month" value={String(acceptedMonth.length)} />
-        <Stat label="Acceptance rate" value={percent(acceptanceRate)} />
-        <Stat label="Average gross margin" value={percent(avgMargin)} />
-        <Stat label="Average job value" value={gbp(avgValue)} />
-        <Stat label="Revenue quoted" value={gbp(quotedTotal)} />
-        <Stat label="Revenue accepted" value={gbp(acceptedTotal)} />
-        <Stat label="Below target margin" value={String(belowTarget)} tone="warn" />
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Awaiting approval" value={String(awaiting)} icon={Clock} />
+        <Stat label="Accepted this month" value={String(acceptedMonth.length)} icon={CheckCircle2} tone="success" />
+        <Stat label="Acceptance rate" value={percent(acceptanceRate)} icon={TrendingUp} />
+        <Stat label="Average gross margin" value={percent(avgMargin)} icon={TrendingUp} />
+        <Stat label="Average job value" value={gbp(avgValue)} icon={PoundSterling} />
+        <Stat label="Revenue quoted" value={gbp(quotedTotal)} icon={PoundSterling} />
+        <Stat label="Revenue accepted" value={gbp(acceptedTotal)} icon={CheckCircle2} tone="success" />
+        <Stat label="Below target margin" value={String(belowTarget)} icon={AlertTriangle} tone="warn" />
       </section>
       <section className="panel mt-4 overflow-hidden">
-        <div className="border-b border-line px-4 py-3 font-semibold">Recent quotes</div>
-        <table>
-          <thead><tr><th>Quote</th><th>Customer</th><th>Status</th><th>Value</th><th>Margin</th><th>Created</th></tr></thead>
-          <tbody>
-            {recent.map((quote) => (
-              <tr key={quote.id}>
-                <td>{quote.quoteNumber}</td>
-                <td>{quote.customer.company}</td>
-                <td>{quote.status.replaceAll("_", " ")}</td>
-                <td>{gbp(quote.finalPrice.toString())}</td>
-                <td>{percent(quote.grossMargin.toString())}</td>
-                <td>{ukDate(quote.createdAt)}</td>
-              </tr>
-            ))}
-            {recent.length === 0 ? <tr><td colSpan={6} className="text-steel">No quotes yet.</td></tr> : null}
-          </tbody>
-        </table>
+        <div className="flex flex-col gap-2 border-b border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold">Recent activity</h2>
+            <p className="text-xs text-steel">Latest quotes and pricing outcomes.</p>
+          </div>
+          <Link href="/quotes" className="button-secondary w-full sm:w-auto">View quotes</Link>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Quote</th><th>Customer</th><th>Status</th><th>Value</th><th>Margin</th><th>Created</th></tr></thead>
+            <tbody>
+              {recent.map((quote) => (
+                <tr key={quote.id}>
+                  <td className="font-semibold">{quote.quoteNumber}</td>
+                  <td>{quote.customer.company}</td>
+                  <td>{quote.status.replaceAll("_", " ")}</td>
+                  <td>{gbp(quote.finalPrice.toString())}</td>
+                  <td>{percent(quote.grossMargin.toString())}</td>
+                  <td>{ukDate(quote.createdAt)}</td>
+                </tr>
+              ))}
+              {recent.length === 0 ? <tr><td colSpan={6} className="text-steel">No quotes yet.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
       </section>
     </>
   );

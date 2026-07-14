@@ -3,19 +3,49 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: dark;
+  --color-page: 10 10 12;
+  --color-panel: 18 18 22;
+  --color-elevated: 27 27 33;
+  --color-border: 55 55 64;
+  --color-text: 246 247 249;
+  --color-muted: 169 172 181;
+  --color-accent: 230 0 126;
+  --color-accent-hover: 255 37 156;
+  --color-success: 35 179 125;
+  --color-warning: 245 166 35;
+  --color-danger: 239 68 68;
+}
+
+:root[data-theme="light"] {
   color-scheme: light;
+  --color-page: 246 247 249;
+  --color-panel: 255 255 255;
+  --color-elevated: 240 242 245;
+  --color-border: 211 216 224;
+  --color-text: 20 22 26;
+  --color-muted: 86 94 108;
+  --color-accent: 230 0 126;
+  --color-accent-hover: 198 0 109;
+  --color-success: 22 139 91;
+  --color-warning: 184 121 36;
+  --color-danger: 200 45 45;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: #eef2f4;
-  color: #17202a;
+  background: rgb(var(--color-page));
+  color: rgb(var(--color-text));
 }
 
 input,
 select,
 textarea {
-  @apply rounded-md border border-line bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-mint focus:ring-2 focus:ring-mint/20;
+  @apply min-h-11 rounded-md border border-line bg-elevated px-3 py-2 text-sm text-ink shadow-sm outline-none placeholder:text-steel focus:border-accent focus:ring-2 focus:ring-accent/25;
 }
 
 label {
@@ -28,7 +58,7 @@ table {
 }
 
 th {
-  @apply bg-cloud text-left text-xs font-semibold uppercase tracking-wide text-steel;
+  @apply bg-elevated text-left text-xs font-semibold uppercase tracking-wide text-steel;
 }
 
 td,
@@ -37,13 +67,31 @@ th {
 }
 
 .panel {
-  @apply rounded-lg border border-line bg-white shadow-panel;
+  @apply rounded-lg border border-line bg-panel shadow-panel;
 }
 
 .button {
-  @apply inline-flex items-center justify-center gap-2 rounded-md bg-ink px-3 py-2 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:bg-steel;
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accentHover disabled:cursor-not-allowed disabled:bg-steel;
 }
 
 .button-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-cloud;
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-elevated px-3 py-2 text-sm font-semibold text-ink hover:bg-cloud;
 }
+
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-page;
+}
+
+.table-wrap {
+  @apply overflow-x-auto;
+}
+
+@media (max-width: 640px) {
+  table {
+    min-width: 680px;
+  }
+}
+.panel:has(table) {
+  overflow-x: auto;
+}
+
