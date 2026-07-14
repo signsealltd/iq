@@ -1,0 +1,308 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DIRECTOR
+  ESTIMATOR
+  PRODUCTION
+  INSTALLER
+  READ_ONLY
+}
+
+enum CustomerType {
+  RETAIL
+  TRADE
+  FLEET
+  COMMERCIAL
+  PUBLIC_SECTOR
+  INTERNAL
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED_TO_JOB
+}
+
+enum VatTreatment {
+  STANDARD
+  ZERO
+  EXEMPT
+  OUT_OF_SCOPE
+}
+
+enum CostType {
+  MATERIAL
+  CONSUMABLE
+  OUTSOURCED
+  EQUIPMENT
+  DELIVERY
+  OTHER
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         Role       @default(ESTIMATOR)
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  sessions     Session[]
+  auditLogs    AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id                       String       @id @default(cuid())
+  company                  String
+  contactName              String?
+  email                    String?
+  phone                    String?
+  billingAddress           String?      @db.Text
+  vatNumber                String?
+  customerType             CustomerType @default(COMMERCIAL)
+  notes                    String?      @db.Text
+  customerSpecificDiscount Decimal      @default(0) @db.Decimal(6, 4)
+  pricingNotes             String?      @db.Text
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  quotes                   Quote[]
+  jobs                     Job[]
+}
+
+model Supplier {
+  id        String     @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  notes     String?    @db.Text
+  active    Boolean    @default(true)
+  materials Material[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Material {
+  id          String    @id @default(cuid())
+  name        String
+  sku         String?
+  unit        String
+  unitCost    Decimal   @db.Decimal(10, 2)
+  defaultMarkup Decimal  @default(0.45) @db.Decimal(6, 4)
+  supplierId  String?
+  active      Boolean   @default(true)
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model LabourRate {
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  internalCostRate   Decimal  @db.Decimal(10, 2)
+  customerChargeRate Decimal  @db.Decimal(10, 2)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model PricingRule {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  value       Decimal  @db.Decimal(10, 4)
+  unit        String
+  description String?  @db.Text
+  active      Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+model PricingMatrixEntry {
+  id                  String   @id @default(cuid())
+  jobCategory         String
+  jobSubtype          String
+  unit                String
+  minimumPrice        Decimal  @db.Decimal(10, 2)
+  targetPrice         Decimal  @db.Decimal(10, 2)
+  premiumPrice        Decimal  @db.Decimal(10, 2)
+  typicalMaterialCost Decimal  @db.Decimal(10, 2)
+  typicalLabourHours  Decimal  @db.Decimal(8, 2)
+  minimumMargin       Decimal  @db.Decimal(6, 4)
+  targetMargin        Decimal  @db.Decimal(6, 4)
+  notes               String?  @db.Text
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Quote {
+  id                      String        @id @default(cuid())
+  quoteNumber             String        @unique
+  status                  QuoteStatus   @default(DRAFT)
+  customerId              String
+  customer                Customer      @relation(fields: [customerId], references: [id])
+  jobTitle                String
+  jobCategory             String
+  jobSubtype              String?
+  description             String        @db.Text
+  quantity                Int           @default(1)
+  supplyOnly              Boolean       @default(false)
+  installed               Boolean       @default(true)
+  vehicleType             String?
+  vehicleSize             String?
+  coverageType            String?
+  location                String?
+  requiredDate            DateTime?
+  urgency                 String?
+  scope                   String?       @db.Text
+  exclusions              String?       @db.Text
+  terms                   String?       @db.Text
+  internalNotes           String?       @db.Text
+  customerNotes           String?       @db.Text
+  calculatedMinimumPrice  Decimal       @db.Decimal(10, 2)
+  calculatedRecommendedPrice Decimal    @db.Decimal(10, 2)
+  calculatedPremiumPrice  Decimal       @db.Decimal(10, 2)
+  finalPrice              Decimal       @db.Decimal(10, 2)
+  vat                     Decimal       @db.Decimal(10, 2)
+  total                   Decimal       @db.Decimal(10, 2)
+  grossProfit             Decimal       @db.Decimal(10, 2)
+  grossMargin             Decimal       @db.Decimal(6, 4)
+  effectiveHourlyReturn   Decimal       @db.Decimal(10, 2)
+  overrideReason          String?
+  pricingSnapshot         Json
+  expiryDate              DateTime?
+  createdAt               DateTime      @default(now())
+  sentAt                  DateTime?
+  acceptedAt              DateTime?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  versions                QuoteVersion[]
+  costs                   QuoteCost[]
+  aiRecommendations       AIRecommendation[]
+  job                     Job?
+}
+
+model QuoteVersion {
+  id        String   @id @default(cuid())
+  quoteId   String
+  version   Int
+  snapshot  Json
+  createdAt DateTime @default(now())
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, version])
+}
+
+model QuoteCost {
+  id            String       @id @default(cuid())
+  quoteId       String
+  costType      CostType
+  description   String
+  supplierName  String?
+  quantity      Decimal      @db.Decimal(10, 2)
+  unitCost      Decimal      @db.Decimal(10, 2)
+  markup        Decimal      @db.Decimal(6, 4)
+  totalCost     Decimal      @db.Decimal(10, 2)
+  vatTreatment  VatTreatment @default(STANDARD)
+  internalNotes String?      @db.Text
+  quote         Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
+
+model Job {
+  id                   String    @id @default(cuid())
+  quoteId              String    @unique
+  customerId           String
+  quotedPrice          Decimal   @db.Decimal(10, 2)
+  estimatedCosts       Decimal   @db.Decimal(10, 2)
+  actualCosts          Decimal?  @db.Decimal(10, 2)
+  estimatedHours       Decimal   @db.Decimal(8, 2)
+  actualHours          Decimal?  @db.Decimal(8, 2)
+  materialsUsed        String?   @db.Text
+  installationDate     DateTime?
+  completionDate       DateTime?
+  finalMargin          Decimal?  @db.Decimal(6, 4)
+  varianceFromEstimate Decimal?  @db.Decimal(10, 2)
+  notes                String?   @db.Text
+  quote                Quote     @relation(fields: [quoteId], references: [id])
+  customer             Customer  @relation(fields: [customerId], references: [id])
+  costs                JobCost[]
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model JobCost {
+  id          String   @id @default(cuid())
+  jobId       String
+  description String
+  costType    CostType
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitCost    Decimal  @db.Decimal(10, 2)
+  totalCost   Decimal  @db.Decimal(10, 2)
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model AIRecommendation {
+  id             String   @id @default(cuid())
+  quoteId        String
+  modelUsed      String
+  promptVersion  String
+  response       Json
+  priceBeforeAI  Decimal  @db.Decimal(10, 2)
+  priceAfterAI   Decimal? @db.Decimal(10, 2)
+  acceptedById   String?
+  acceptedAt     DateTime?
+  createdAt      DateTime @default(now())
+  quote          Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String?  @db.Text
+  encrypted Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  filename     String
+  contentType  String
+  sizeBytes    Int
+  storageKey   String
+  quoteId      String?
+  jobId        String?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+}

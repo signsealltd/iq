@@ -1,0 +1,10 @@
+.env
+.env.local
+.env.production
+node_modules
+.next
+coverage
+dist
+*.log
+*.tsbuildinfo
+prisma/migrations/*/migration_lock.toml

@@ -1,0 +1,26 @@
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: signseal_pricing
+      MARIADB_USER: signseal_user
+      MARIADB_PASSWORD: change_me
+      MARIADB_ROOT_PASSWORD: change_root
+    ports:
+      - "3306:3306"
+    volumes:
+      - signseal_db:/var/lib/mysql
+  app:
+    build: .
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: mysql://signseal_user:change_me@db:3306/signseal_pricing
+      AUTH_SECRET: replace-with-at-least-32-random-characters
+      APP_URL: http://localhost:3000
+      QUICKBOOKS_ENABLED: "false"
+    ports:
+      - "3000:3000"
+volumes:
+  signseal_db:
