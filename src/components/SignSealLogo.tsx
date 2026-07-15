@@ -6,17 +6,17 @@ export function SignSealLogo({ compact = false }: { compact?: boolean }) {
       className={
         compact
           ? "flex h-11 w-11 overflow-hidden"
-          : "flex h-14 w-56 overflow-hidden"
+          : "flex h-16 w-64 max-w-full overflow-hidden"
       }
     >
       <Image
-        src="/signseal-logo-transparent.png"
+        src="/signseal-main-logo.svg"
         alt="SignSeal logo"
-        width={compact ? 160 : 640}
-        height={compact ? 160 : 170}
+        width={1087}
+        height={290}
         className={
           compact
-            ? "h-full w-[10rem] max-w-none object-cover object-left"
+            ? "h-full w-[10.5rem] max-w-none object-cover object-left"
             : "h-full w-full object-contain object-left"
         }
         priority
