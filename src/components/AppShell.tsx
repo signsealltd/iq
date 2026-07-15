@@ -117,7 +117,7 @@ function NavLinks({ onNavigate, expanded = false }: { onNavigate?: () => void; e
             href={href}
             onClick={onNavigate}
             title={label}
-            className={active ? "focus-ring flex min-h-11 items-center gap-3 rounded-md bg-accent px-3 text-sm font-semibold text-white" : "focus-ring flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-steel hover:bg-elevated hover:text-ink"}
+            className={active ? "focus-ring flex min-h-11 items-center gap-3 rounded-md border border-line bg-elevated px-3 text-sm font-semibold text-ink" : "focus-ring flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-steel hover:bg-elevated hover:text-ink"}
           >
             <Icon size={17} />
             <span className={expanded ? "inline" : "hidden xl:inline"}>{label}</span>

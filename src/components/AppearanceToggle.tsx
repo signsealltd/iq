@@ -47,7 +47,7 @@ export function AppearanceToggle() {
               setAppearance(value);
               applyAppearance(value);
             }}
-            className={active ? "focus-ring flex min-h-10 items-center justify-center gap-1 rounded-md bg-accent px-2 text-xs font-semibold text-white" : "focus-ring flex min-h-10 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold text-steel hover:bg-elevated hover:text-ink"}
+            className={active ? "focus-ring flex min-h-10 items-center justify-center gap-1 rounded-md bg-elevated px-2 text-xs font-semibold text-ink" : "focus-ring flex min-h-10 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold text-steel hover:bg-elevated hover:text-ink"}
           >
             <Icon size={15} />
             <span className="hidden xl:inline">{label}</span>

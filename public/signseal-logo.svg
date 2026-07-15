@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 128" role="img" aria-labelledby="title desc">
+  <title id="title">SignSeal logo</title>
+  <desc id="desc">SignSeal magenta wordmark and line on a transparent background</desc>
+  <g fill="none" stroke="#e6007e" stroke-width="18" stroke-linecap="square">
+    <path d="M74 16 24 66c-21 21-6 57 24 57 10 0 20-4 27-12l48-48c14-14 36-16 52-4"/>
+    <path d="M178 52c18 26 15 62-8 85l-62 62" transform="translate(0 -78)"/>
+    <path d="M214 64h282"/>
+  </g>
+</svg>

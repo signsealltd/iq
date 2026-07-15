@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bot, Calculator, Check, WandSparkles } from "lucide-react";
 import { jobCategories, overrideReasons } from "@/lib/constants";
 import { gbp, percent } from "@/lib/format";
 import type { AIAdvisorResponse, PricingInput } from "@/lib/validation";
 import type { PricingResult } from "@/lib/pricing/types";
+
+type MatrixDefault = { id: string; jobCategory: string; jobSubtype: string; typicalMaterialCost: number; defaultDesignHours: number; defaultProductionHours: number; defaultInstallationHours: number; defaultTravelHours: number; wastePercentage: number; typicalLabourHours?: number; };
+type MaterialDefault = { id: string; name: string; sku?: string | null; category?: string | null; unitCost: number; costPerSqm?: number | null; defaultMarkup: number; };
 
 const initialInput: PricingInput = {
   customerType: "COMMERCIAL",
@@ -46,7 +49,48 @@ export function NewPriceClient() {
   const [result, setResult] = useState<PricingResult | null>(null);
   const [advisor, setAdvisor] = useState<(AIAdvisorResponse & { model: string }) | null>(null);
   const [message, setMessage] = useState("");
+  const [matrixDefaults, setMatrixDefaults] = useState<MatrixDefault[]>([]);
+  const [materialDefaults, setMaterialDefaults] = useState<MaterialDefault[]>([]);
+  const [selectedMatrixId, setSelectedMatrixId] = useState("");
+  const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const finalPrice = useMemo(() => input.manualOverridePrice ?? result?.recommendedSellingPrice, [input.manualOverridePrice, result]);
+  const matchingMatrix = matrixDefaults.filter((entry) => entry.jobCategory === input.jobCategory);
+
+  useEffect(() => {
+    fetch("/api/pricing/defaults")
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!data) return;
+        setMatrixDefaults(data.matrix ?? []);
+        setMaterialDefaults(data.materials ?? []);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  function applyMatrix(entry: MatrixDefault) {
+    setSelectedMatrixId(entry.id);
+    setInput((current) => ({
+      ...current,
+      jobCategory: entry.jobCategory as PricingInput["jobCategory"],
+      jobSubtype: entry.jobSubtype,
+      designHours: entry.defaultDesignHours,
+      productionHours: entry.defaultProductionHours || entry.typicalLabourHours || 0,
+      installationHours: entry.defaultInstallationHours,
+      travelHours: entry.defaultTravelHours,
+      wastagePercentage: entry.wastePercentage,
+      materialLines: [{ ...current.materialLines[0], description: current.materialLines[0]?.description || "Default material allowance", quantity: 1, unitCost: entry.typicalMaterialCost, markup: current.materialLines[0]?.markup ?? 0.45, vatTreatment: "STANDARD", supplier: "", internalNotes: "Loaded from pricing matrix" }]
+    }));
+  }
+
+  function applyMaterial(materialId: string) {
+    const material = materialDefaults.find((item) => item.id === materialId);
+    setSelectedMaterialId(materialId);
+    if (!material) return;
+    setInput((current) => ({
+      ...current,
+      materialLines: [{ description: material.name, supplier: "", quantity: 1, unitCost: material.costPerSqm ?? material.unitCost, markup: material.defaultMarkup, vatTreatment: "STANDARD", internalNotes: material.sku ? `SKU: ${material.sku}` : "Loaded from materials database" }]
+    }));
+  }
 
   function setNumber<K extends keyof PricingInput>(key: K, value: string) {
     setInput((current) => ({ ...current, [key]: Number(value) } as PricingInput));
@@ -100,11 +144,16 @@ export function NewPriceClient() {
           <div className="grid gap-3 md:grid-cols-4">
             <Field label="Job title"><input placeholder="LWB van graphics" /></Field>
             <Field label="Category">
-              <select value={input.jobCategory} onChange={(e) => setInput({ ...input, jobCategory: e.target.value as PricingInput["jobCategory"] })}>
+              <select value={input.jobCategory} onChange={(e) => { const category = e.target.value as PricingInput["jobCategory"]; const first = matrixDefaults.find((entry) => entry.jobCategory === category); if (first) applyMatrix(first); else setInput({ ...input, jobCategory: category }); }}>
                 {jobCategories.map((category) => <option key={category}>{category}</option>)}
               </select>
             </Field>
-            <Field label="Subtype"><input value={input.jobSubtype} onChange={(e) => setInput({ ...input, jobSubtype: e.target.value })} /></Field>
+            <Field label="Subtype">
+              <select value={selectedMatrixId} onChange={(e) => { const entry = matrixDefaults.find((item) => item.id === e.target.value); if (entry) applyMatrix(entry); else { setSelectedMatrixId(""); setInput({ ...input, jobSubtype: "" }); } }}>
+                <option value="">Manual subtype</option>
+                {matchingMatrix.map((entry) => <option key={entry.id} value={entry.id}>{entry.jobSubtype}</option>)}
+              </select>
+            </Field>
             <Field label="Quantity"><input type="number" min="1" value={input.quantity} onChange={(e) => setNumber("quantity", e.target.value)} /></Field>
             <Field label="Urgency">
               <select value={input.urgency} onChange={(e) => setInput({ ...input, urgency: e.target.value as PricingInput["urgency"] })}>
@@ -120,7 +169,7 @@ export function NewPriceClient() {
           </div>
         </div>
         <div className="panel grid gap-4 p-4">
-          <h2 className="font-semibold">Costs and labour</h2>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><h2 className="font-semibold">Costs and labour</h2><select className="md:w-80" value={selectedMaterialId} onChange={(e) => applyMaterial(e.target.value)}><option value="">Load material default</option>{materialDefaults.map((material) => <option key={material.id} value={material.id}>{material.name}{material.sku ? ` (${material.sku})` : ""}</option>)}</select></div>
           <div className="grid gap-3 md:grid-cols-4">
             <Field label="Material cost"><input type="number" value={input.materialLines[0]?.unitCost ?? 0} onChange={(e) => setInput({ ...input, materialLines: [{ ...input.materialLines[0], description: "Vinyl/media", quantity: 1, unitCost: Number(e.target.value), markup: input.materialLines[0]?.markup ?? 0.45, vatTreatment: "STANDARD", supplier: "", internalNotes: "" }] })} /></Field>
             <Field label="Material markup"><input type="number" step="0.01" value={input.materialLines[0]?.markup ?? 0.45} onChange={(e) => setInput({ ...input, materialLines: [{ ...input.materialLines[0], description: "Vinyl/media", quantity: 1, unitCost: input.materialLines[0]?.unitCost ?? 0, markup: Number(e.target.value), vatTreatment: "STANDARD", supplier: "", internalNotes: "" }] })} /></Field>
@@ -199,3 +248,5 @@ function CheckBox({ label, checked, onChange }: { label: string; checked: boolea
 function Price({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
   return <div className="flex justify-between"><span>{label}</span><strong className={strong ? "text-lg" : ""}>{gbp(value)}</strong></div>;
 }
+
+

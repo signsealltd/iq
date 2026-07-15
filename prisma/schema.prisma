@@ -50,6 +50,26 @@ enum CostType {
   OTHER
 }
 
+enum JobWorkflowStatus {
+  QUOTE
+  APPROVED
+  ARTWORK
+  AWAITING_APPROVAL
+  PRODUCTION
+  INSTALLATION
+  INVOICE
+  COMPLETED
+}
+
+enum InvoiceStatus {
+  NOT_CREATED
+  ESTIMATE_CREATED
+  INVOICED
+  PART_PAID
+  PAID
+  VOID
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -84,6 +104,9 @@ model Customer {
   notes                    String?      @db.Text
   customerSpecificDiscount Decimal      @default(0) @db.Decimal(6, 4)
   pricingNotes             String?      @db.Text
+  discountLevel            String?
+  preferredPricingProfile  String?
+  archivedAt               DateTime?
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
   quotes                   Quote[]
@@ -91,26 +114,36 @@ model Customer {
 }
 
 model Supplier {
-  id        String     @id @default(cuid())
-  name      String
-  email     String?
-  phone     String?
-  notes     String?    @db.Text
-  active    Boolean    @default(true)
+  id              String     @id @default(cuid())
+  name            String
+  contactName     String?
+  email           String?
+  phone           String?
+  address         String?    @db.Text
+  leadTimeDays    Int?
+  defaultDiscount Decimal    @default(0) @db.Decimal(6, 4)
+  notes           String?    @db.Text
+  active          Boolean    @default(true)
+  archivedAt      DateTime?
   materials Material[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
 
 model Material {
-  id          String    @id @default(cuid())
-  name        String
-  sku         String?
-  unit        String
-  unitCost    Decimal   @db.Decimal(10, 2)
-  defaultMarkup Decimal  @default(0.45) @db.Decimal(6, 4)
+  id            String    @id @default(cuid())
+  name          String
+  sku           String?
+  category      String?
+  unit          String
+  unitCost      Decimal   @db.Decimal(10, 2)
+  rollWidthMm   Decimal?  @db.Decimal(10, 2)
+  rollLengthM   Decimal?  @db.Decimal(10, 2)
+  costPerSqm    Decimal?  @db.Decimal(10, 2)
+  defaultMarkup Decimal   @default(0.45) @db.Decimal(6, 4)
   supplierId  String?
   active      Boolean   @default(true)
+  archivedAt  DateTime?
   supplier    Supplier? @relation(fields: [supplierId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -121,7 +154,10 @@ model LabourRate {
   name               String   @unique
   internalCostRate   Decimal  @db.Decimal(10, 2)
   customerChargeRate Decimal  @db.Decimal(10, 2)
+  minimumCharge      Decimal  @default(0) @db.Decimal(10, 2)
+  chargeIncrementMinutes Int   @default(15)
   active             Boolean  @default(true)
+  archivedAt         DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -147,10 +183,16 @@ model PricingMatrixEntry {
   premiumPrice        Decimal  @db.Decimal(10, 2)
   typicalMaterialCost Decimal  @db.Decimal(10, 2)
   typicalLabourHours  Decimal  @db.Decimal(8, 2)
+  defaultDesignHours Decimal   @default(0) @db.Decimal(8, 2)
+  defaultProductionHours Decimal @default(0) @db.Decimal(8, 2)
+  defaultInstallationHours Decimal @default(0) @db.Decimal(8, 2)
+  defaultTravelHours Decimal @default(0) @db.Decimal(8, 2)
+  wastePercentage Decimal @default(0.08) @db.Decimal(6, 4)
   minimumMargin       Decimal  @db.Decimal(6, 4)
   targetMargin        Decimal  @db.Decimal(6, 4)
   notes               String?  @db.Text
   active              Boolean  @default(true)
+  archivedAt          DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
@@ -230,7 +272,7 @@ model QuoteCost {
 
 model Job {
   id                   String    @id @default(cuid())
-  quoteId              String    @unique
+  quoteId              String?   @unique
   customerId           String
   quotedPrice          Decimal   @db.Decimal(10, 2)
   estimatedCosts       Decimal   @db.Decimal(10, 2)
@@ -243,7 +285,12 @@ model Job {
   finalMargin          Decimal?  @db.Decimal(6, 4)
   varianceFromEstimate Decimal?  @db.Decimal(10, 2)
   notes                String?   @db.Text
-  quote                Quote     @relation(fields: [quoteId], references: [id])
+  workflowStatus       JobWorkflowStatus @default(QUOTE)
+  invoiceStatus        InvoiceStatus @default(NOT_CREATED)
+  quickBooksEstimateId String?
+  quickBooksInvoiceId  String?
+  archivedAt           DateTime?
+  quote                Quote?    @relation(fields: [quoteId], references: [id])
   customer             Customer  @relation(fields: [customerId], references: [id])
   costs                JobCost[]
   createdAt            DateTime  @default(now())

@@ -11,6 +11,10 @@ export async function askPricingAdvisor(payload: {
   pricing: PricingResult;
   matrixMatches: unknown[];
   similarJobs: unknown[];
+  materialDefaults?: unknown[];
+  customerHistory?: unknown[];
+  labourUtilisation?: unknown;
+  competitivePositioning?: unknown;
 }): Promise<AIAdvisorResponse & { model: string }> {
   if (!process.env.OPENAI_API_KEY) throw new Error("OpenAI is not configured.");
   const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -54,3 +58,4 @@ export async function askPricingAdvisor(payload: {
   const parsed = JSON.parse(response.output_text);
   return { ...aiAdvisorResponseSchema.parse(parsed), model };
 }
+
