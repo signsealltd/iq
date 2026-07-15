@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { requireUser } from "@/lib/auth";
+import { currentUser } from "@/lib/auth";
 import { askPricingAdvisor } from "@/lib/openai/advisor";
 import { getPricingContext } from "@/lib/pricing/context";
 import { calculatePricing } from "@/lib/pricing/engine";
@@ -10,29 +10,33 @@ import { rateLimit } from "@/lib/rate-limit";
 import { pricingInputSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
-  const user = await requireUser();
-  const ip = (await headers()).get("x-forwarded-for") ?? user.id;
-  if (!rateLimit(`ai:${ip}`, 10, 60 * 60 * 1000).ok) {
-    return NextResponse.json({ error: "AI advisor rate limit exceeded." }, { status: 429 });
-  }
-  const body = await request.json();
-  const input = pricingInputSchema.parse(body);
-  const context = await getPricingContext();
-  const pricing = calculatePricing(input, context);
-  const [matrixMatches, similarJobs, materialDefaults, completedJobs] = await Promise.all([
-    prisma.pricingMatrixEntry.findMany({ where: { active: true, archivedAt: null, jobCategory: input.jobCategory }, take: 8 }),
-    findSimilarJobs({ jobCategory: input.jobCategory }),
-    prisma.material.findMany({ where: { active: true, archivedAt: null }, include: { supplier: true }, take: 20 }),
-    prisma.job.findMany({ where: { workflowStatus: "COMPLETED" }, include: { customer: true, quote: true }, orderBy: { completionDate: "desc" }, take: 12 })
-  ]);
-  const utilisation = completedJobs.length
-    ? {
-        averageEstimatedHours: completedJobs.reduce((sum, job) => sum + Number(job.estimatedHours), 0) / completedJobs.length,
-        averageActualHours: completedJobs.reduce((sum, job) => sum + Number(job.actualHours ?? 0), 0) / completedJobs.length,
-        jobsWithOverrun: completedJobs.filter((job) => job.actualHours && Number(job.actualHours) > Number(job.estimatedHours)).length
-      }
-    : { averageEstimatedHours: 0, averageActualHours: 0, jobsWithOverrun: 0 };
   try {
+    const user = await currentUser();
+    if (!user) return NextResponse.json({ error: "Please sign in before using the AI pricing advisor." }, { status: 401 });
+
+    const ip = (await headers()).get("x-forwarded-for") ?? user.id;
+    if (!rateLimit(`ai:${ip}`, 10, 60 * 60 * 1000).ok) {
+      return NextResponse.json({ error: "AI advisor rate limit exceeded. Try again later." }, { status: 429 });
+    }
+
+    const body = await request.json();
+    const input = pricingInputSchema.parse(body);
+    const context = await getPricingContext();
+    const pricing = calculatePricing(input, context);
+    const [matrixMatches, similarJobs, materialDefaults, completedJobs] = await Promise.all([
+      prisma.pricingMatrixEntry.findMany({ where: { active: true, archivedAt: null, jobCategory: input.jobCategory }, take: 8 }),
+      findSimilarJobs({ jobCategory: input.jobCategory }),
+      prisma.material.findMany({ where: { active: true, archivedAt: null }, include: { supplier: true }, take: 20 }),
+      prisma.job.findMany({ where: { workflowStatus: "COMPLETED" }, include: { customer: true, quote: true }, orderBy: { completionDate: "desc" }, take: 12 })
+    ]);
+    const utilisation = completedJobs.length
+      ? {
+          averageEstimatedHours: completedJobs.reduce((sum, job) => sum + Number(job.estimatedHours), 0) / completedJobs.length,
+          averageActualHours: completedJobs.reduce((sum, job) => sum + Number(job.actualHours ?? 0), 0) / completedJobs.length,
+          jobsWithOverrun: completedJobs.filter((job) => job.actualHours && Number(job.actualHours) > Number(job.estimatedHours)).length
+        }
+      : { averageEstimatedHours: 0, averageActualHours: 0, jobsWithOverrun: 0 };
+
     const advice = await askPricingAdvisor({
       job: input,
       pricing,
@@ -45,6 +49,8 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(advice);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "AI advisor failed." }, { status: 400 });
+    const message = error instanceof Error ? error.message : "AI advisor failed.";
+    const status = message.includes("not configured") ? 503 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
 }

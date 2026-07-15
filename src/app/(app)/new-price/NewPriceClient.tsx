@@ -9,6 +9,7 @@ import type { PricingResult } from "@/lib/pricing/types";
 
 type MatrixDefault = { id: string; jobCategory: string; jobSubtype: string; typicalMaterialCost: number; defaultDesignHours: number; defaultProductionHours: number; defaultInstallationHours: number; defaultTravelHours: number; wastePercentage: number; typicalLabourHours?: number; };
 type MaterialDefault = { id: string; name: string; sku?: string | null; category?: string | null; unitCost: number; costPerSqm?: number | null; defaultMarkup: number; };
+type AIStatus = { configured: boolean; model?: string; error?: string };
 
 const initialInput: PricingInput = {
   customerType: "COMMERCIAL",
@@ -49,12 +50,16 @@ export function NewPriceClient() {
   const [result, setResult] = useState<PricingResult | null>(null);
   const [advisor, setAdvisor] = useState<(AIAdvisorResponse & { model: string }) | null>(null);
   const [message, setMessage] = useState("");
+  const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
   const [matrixDefaults, setMatrixDefaults] = useState<MatrixDefault[]>([]);
   const [materialDefaults, setMaterialDefaults] = useState<MaterialDefault[]>([]);
   const [selectedMatrixId, setSelectedMatrixId] = useState("");
   const [selectedMaterialId, setSelectedMaterialId] = useState("");
   const finalPrice = useMemo(() => input.manualOverridePrice ?? result?.recommendedSellingPrice, [input.manualOverridePrice, result]);
   const matchingMatrix = matrixDefaults.filter((entry) => entry.jobCategory === input.jobCategory);
+  const advisorDisabled = isAdvisorLoading || !result || aiStatus?.configured === false;
 
   useEffect(() => {
     fetch("/api/pricing/defaults")
@@ -65,6 +70,13 @@ export function NewPriceClient() {
         setMaterialDefaults(data.materials ?? []);
       })
       .catch(() => undefined);
+
+    fetch("/api/ai/status")
+      .then(async (response) => {
+        const data = await safeJson<AIStatus>(response);
+        setAiStatus(data ?? { configured: false, error: response.ok ? undefined : "Unable to check AI status." });
+      })
+      .catch(() => setAiStatus({ configured: false, error: "Unable to check AI status." }));
   }, []);
 
   function applyMatrix(entry: MatrixDefault) {
@@ -98,23 +110,39 @@ export function NewPriceClient() {
 
   async function calculate() {
     setMessage("");
-    const response = await fetch("/api/pricing/calculate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
-    if (!response.ok) {
-      setMessage("Check the pricing inputs. Manual overrides need a reason.");
-      return;
+    setIsCalculating(true);
+    try {
+      const response = await fetch("/api/pricing/calculate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+      const data = await safeJson<PricingResult & { error?: string }>(response);
+      if (!response.ok || !data) {
+        setMessage(data?.error ?? "Check the pricing inputs. Manual overrides need a reason.");
+        return;
+      }
+      setResult(data);
+    } finally {
+      setIsCalculating(false);
     }
-    setResult(await response.json());
   }
 
   async function askAdvisor() {
     setMessage("");
-    const response = await fetch("/api/ai/pricing-advisor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
-    const data = await response.json();
-    if (!response.ok) {
-      setMessage(data.error ?? "AI advisor is not configured.");
+    if (!result) {
+      setMessage("Calculate a price first, then ask the AI advisor.");
       return;
     }
-    setAdvisor(data);
+    setIsAdvisorLoading(true);
+    try {
+      const response = await fetch("/api/ai/pricing-advisor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+      const data = await safeJson<(AIAdvisorResponse & { model: string }) & { error?: string }>(response);
+      if (!response.ok || !data) {
+        setMessage(data?.error ?? "AI advisor failed. Check the OpenAI key, model and server logs.");
+        return;
+      }
+      setAdvisor(data);
+      setAiStatus((current) => current ? { ...current, configured: true, model: data.model } : { configured: true, model: data.model });
+    } finally {
+      setIsAdvisorLoading(false);
+    }
   }
 
   return (
@@ -186,8 +214,8 @@ export function NewPriceClient() {
           </div>
         </div>
         <div className="sticky bottom-0 flex flex-wrap gap-2 border border-line bg-panel p-3 shadow-panel">
-          <button className="button" onClick={calculate}><Calculator size={16} /> Calculate</button>
-          <button className="button-secondary" onClick={askAdvisor} disabled={!result}><Bot size={16} /> Ask Pricing Advisor</button>
+          <button className="button" onClick={calculate} disabled={isCalculating}><Calculator size={16} /> {isCalculating ? "Calculating" : "Calculate"}</button>
+          <button className="button-secondary" onClick={askAdvisor} disabled={advisorDisabled} title={!result ? "Calculate first" : aiStatus?.configured === false ? "OPENAI_API_KEY is not visible to the server" : "Ask the AI pricing advisor"}><Bot size={16} /> {isAdvisorLoading ? "Asking" : "Ask Pricing Advisor"}</button>
           {message ? <p className="self-center text-sm text-amber">{message}</p> : null}
         </div>
       </section>
@@ -218,6 +246,7 @@ export function NewPriceClient() {
         </div>
         <div className="panel p-4">
           <h2 className="flex items-center gap-2 font-semibold"><WandSparkles size={16} /> AI Pricing Advisor</h2>
+          <p className="mt-2 text-xs text-steel">{aiStatus ? aiStatus.configured ? `OpenAI key detected. Model: ${aiStatus.model ?? "default"}.` : `OpenAI key not detected by this server${aiStatus.error ? `: ${aiStatus.error}` : "."}` : "Checking OpenAI configuration."}</p>
           {advisor ? (
             <div className="mt-3 grid gap-2 text-sm">
               <Price label="AI minimum" value={advisor.minimumPrice} />
@@ -230,11 +259,19 @@ export function NewPriceClient() {
               <p className="font-semibold">Customer wording</p>
               <p className="text-steel">{advisor.suggestedCustomerWording}</p>
             </div>
-          ) : <p className="mt-2 text-sm text-steel">Not configured unless OPENAI_API_KEY is set. Advisor recommendations are never applied automatically.</p>}
+          ) : <p className="mt-2 text-sm text-steel">Calculate a price first, then ask for an advisory recommendation. AI never overwrites the quote automatically.</p>}
         </div>
       </aside>
     </div>
   );
+}
+
+async function safeJson<T>(response: Response): Promise<T | null> {
+  try {
+    return await response.json() as T;
+  } catch {
+    return null;
+  }
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -248,5 +285,3 @@ function CheckBox({ label, checked, onChange }: { label: string; checked: boolea
 function Price({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
   return <div className="flex justify-between"><span>{label}</span><strong className={strong ? "text-lg" : ""}>{gbp(value)}</strong></div>;
 }
-
-
