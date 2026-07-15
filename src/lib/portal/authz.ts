@@ -25,7 +25,7 @@ export async function getAuthorisedProgramme(programmeId: string) {
   const user = await requirePortalUser();
   const programme = await prisma.clientProgramme.findUnique({
     where: { id: programmeId },
-    include: { customer: true, contacts: { include: { user: true } }, projects: { include: { actionRequests: true } } }
+    include: { customer: true, contacts: { include: { user: true } }, projects: { include: { stages: true, actionRequests: true } } }
   });
   if (!programme || !canAccessCustomer(user, programme.customerId)) notFound();
   return { user, programme };

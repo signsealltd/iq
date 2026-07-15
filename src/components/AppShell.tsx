@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calculator, ClipboardList, Factory, FileText, Gauge, Home, LogOut, Menu, Settings, Truck, Users, Wrench, X } from "lucide-react";
+import { Calculator, BriefcaseBusiness, ClipboardList, Factory, FileText, Gauge, Home, LogOut, Menu, Settings, Truck, Users, Wrench, X } from "lucide-react";
 import { useState } from "react";
 import { AppearanceToggle } from "@/components/AppearanceToggle";
 import { SignSealLogo } from "@/components/SignSealLogo";
@@ -13,6 +13,7 @@ const nav = [
   ["/new-price", "New Price", Calculator],
   ["/quotes", "Quotes", FileText],
   ["/customers", "Customers", Users],
+  ["/portal-admin", "Clients & Portal", BriefcaseBusiness],
   ["/jobs", "Jobs", ClipboardList],
   ["/pricing-matrix", "Pricing Matrix", Gauge],
   ["/materials", "Materials", Truck],
@@ -114,7 +115,7 @@ function NavLinks({ onNavigate, expanded = false }: { onNavigate?: () => void; e
         return (
           <Link
             key={href}
-            href={href}
+            href={href as never}
             onClick={onNavigate}
             title={label}
             className={active ? "focus-ring flex min-h-11 items-center gap-3 rounded-md border border-line bg-elevated px-3 text-sm font-semibold text-ink" : "focus-ring flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-steel hover:bg-elevated hover:text-ink"}

@@ -185,6 +185,39 @@ Schedule automated database backups in Plesk and store copies outside the web ro
 
 Set `OPENAI_API_KEY` and optionally `OPENAI_MODEL`. The app sends structured job/pricing context only. The AI advisor returns validated JSON and cannot alter a quote unless a user explicitly applies a recommendation.
 
+
+## Client Project Portal
+
+SignSeal IQ includes a secure client-facing project portal for multi-site signage programmes. Internal users manage portal records from `Clients & Portal`; client users authenticate through the normal login flow and are redirected to `/portal`.
+
+Portal data model highlights:
+
+- Portal-enabled customers, client users and secure invitation/reset-token tables.
+- Programmes grouping multiple client projects/sites.
+- Per-project status, timeline stages, documents, messages, artwork approvals and action requests.
+- Client-visible versus internal-only visibility on messages and documents.
+- Email templates and notification queue records for invitations, project updates, artwork proofs, approvals, uploads, installation confirmations and assigned action requests.
+- Audit hooks for portal messages, approvals and action completion.
+
+Security rules:
+
+- Client users must be linked to a `Customer` via `User.customerId`.
+- Portal queries enforce customer isolation server-side; clients cannot access another organisation by changing a URL.
+- Internal-only messages/documents are filtered out for client users.
+- Client users are redirected away from the internal ERP shell.
+
+Demo data:
+
+`npm run db:seed` creates optional HEARTS Academy Trust portal demo records, including the `HEARTS School Signage Project 2026` programme and six school/head-office projects. It does not create real client passwords or send invitations automatically.
+
+Operational notes:
+
+- Apply migrations with `npm run db:deploy` in production.
+- Run `npm run db:generate` after schema changes.
+- Run `npm run test` to verify client isolation and artwork approval rules.
+- File uploads currently store metadata/storage keys; connect the storage provider before enabling real binary uploads.
+- Email notifications are queued against configurable templates; connect SMTP/provider delivery before enabling live sends.
+
 ## QuickBooks Notes
 
 QuickBooks is intentionally not wired to fake OAuth. Configure:
