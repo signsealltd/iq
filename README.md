@@ -216,7 +216,7 @@ Operational notes:
 - Run `npm run db:generate` after schema changes.
 - Run `npm run test` to verify client isolation and artwork approval rules.
 - File uploads currently store metadata/storage keys; connect the storage provider before enabling real binary uploads.
-- Email notifications are queued against configurable templates; connect SMTP/provider delivery before enabling live sends.
+- Email notifications are queued against configurable templates. Until SMTP/provider delivery is connected, client invitations generate secure manual links that can be copied from the UI and sent by your own email account.
 
 ## QuickBooks Notes
 
@@ -262,4 +262,5 @@ npm run build
 - Attachment upload storage with antivirus scanning.
 - Encrypted settings editor for QuickBooks secrets.
 - Semantic similar-job search or embeddings.
+
 

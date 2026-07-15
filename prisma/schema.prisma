@@ -701,6 +701,7 @@ model ClientInvitation {
   email       String
   name        String?
   tokenHash   String                 @unique
+  tokenPreview String?
   expiresAt   DateTime
   status      ClientInvitationStatus @default(PENDING)
   invitedById String?
@@ -766,6 +767,7 @@ model PortalNotification {
   @@index([customerId])
   @@index([projectId])
 }
+
 
 
 

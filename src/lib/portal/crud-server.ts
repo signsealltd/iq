@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
@@ -10,7 +10,7 @@ import { queuePortalNotification } from "@/lib/portal/notifications";
 
 export type PortalCrudRow = Record<string, unknown> & { id: string; archived?: boolean };
 export type LookupOption = { label: string; value: string };
-export type PortalCrudPayload = { rows: PortalCrudRow[]; lookups: Record<string, LookupOption[]> };
+export type PortalCrudPayload = { rows: PortalCrudRow[]; lookups: Record<string, LookupOption[]>; generatedLink?: string };
 
 function clean(data: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined && value !== ""));
@@ -20,6 +20,11 @@ function num(value: unknown, fallback = 0) { return value === "" || value == nul
 function date(value: unknown) { return value ? new Date(String(value)) : null; }
 function dateInput(value: unknown) { return value ? new Date(String(value)).toISOString().slice(0, 10) : null; }
 function hashToken(token: string) { return crypto.createHash("sha256").update(token).digest("hex"); }
+export function portalInviteUrl(token: string) {
+  const base = process.env.APP_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  return `${base}/portal/invite/${token}`;
+}
+function previewToken(token: string) { return `${token.slice(0, 8)}...${token.slice(-6)}`; }
 
 async function lookups() {
   const [clients, programmes, projects, sites, users] = await Promise.all([
@@ -58,7 +63,11 @@ export async function portalPayload(resource: string): Promise<PortalCrudPayload
   }
   if (resource === "users") {
     const rows = await prisma.user.findMany({ where: { role: "CLIENT" }, include: { customer: true }, orderBy: { name: "asc" } });
-    return { lookups: lookupData, rows: rows.map((row) => ({ id: row.id, customerId: row.customerId, clientName: row.customer?.company, name: row.name, email: row.email, active: row.active, archived: !row.active, createdAt: row.createdAt })) };
+    const invites = await prisma.clientInvitation.findMany({ where: { status: "PENDING", expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } });
+    return { lookups: lookupData, rows: rows.map((row) => {
+      const invite = invites.find((item) => item.email.toLowerCase() === row.email.toLowerCase());
+      return { id: row.id, customerId: row.customerId, clientName: row.customer?.company, name: row.name, email: row.email, active: row.active, archived: !row.active, createdAt: row.createdAt, inviteStatus: invite?.status ?? "ACTIVE", inviteExpires: dateInput(invite?.expiresAt), inviteTokenPreview: invite?.tokenPreview ?? null };
+    }) };
   }
   if (resource === "action-requests") {
     const rows = await prisma.clientActionRequest.findMany({ include: { project: true, site: true, assignedUser: true }, orderBy: [{ status: "asc" }, { dueDate: "asc" }] });
@@ -149,10 +158,11 @@ async function inviteClientUser(body: Record<string, unknown>, invitedById: stri
     update: { name, customerId, role: "CLIENT", active: body.active === undefined ? true : bool(body.active) },
     create: { email, name, customerId, role: "CLIENT", active: true, passwordHash: placeholderHash }
   });
-  const invitation = await prisma.clientInvitation.create({ data: { customerId, email, name, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), invitedById } });
-  await queuePortalNotification({ event: "CLIENT_INVITATION", userId: user.id, customerId, payload: { email, name, invitationId: invitation.id } });
-  await audit("portal.client_user.invited", "User", user.id, { customerId, email }, invitedById);
-  return user;
+  const invitation = await prisma.clientInvitation.create({ data: { customerId, email, name, tokenHash: hashToken(token), tokenPreview: previewToken(token), expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), invitedById } });
+  const link = portalInviteUrl(token);
+  await queuePortalNotification({ event: "CLIENT_INVITATION", userId: user.id, customerId, payload: { email, name, invitationId: invitation.id, manualLink: link } });
+  await audit("portal.client_user.invited", "User", user.id, { customerId, email, manualLinkGenerated: true }, invitedById);
+  return { ...user, generatedLink: link };
 }
 
 async function createDefaultProjectStages(projectId: string) {
@@ -161,3 +171,4 @@ async function createDefaultProjectStages(projectId: string) {
 async function createDefaultSiteTimeline(siteId: string) {
   await Promise.all(defaultProjectStages.map((label, index) => prisma.clientSiteTimeline.create({ data: { siteId, label, sortOrder: index + 1 } })));
 }
+
