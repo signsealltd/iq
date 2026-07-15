@@ -45,7 +45,7 @@ function Sidebar({ user }: { user: ShellUser }) {
       <div className="border-b border-line p-3 xl:p-4">
         <div className="hidden xl:block"><SignSealLogo /></div>
         <div className="xl:hidden"><SignSealLogo compact /></div>
-        <p className="mt-3 hidden text-xs font-semibold uppercase tracking-wide text-steel xl:block">SignSeal IQ</p>
+        <p className="mt-3 hidden text-xs font-semibold uppercase tracking-wide text-white xl:block">SignSeal IQ</p>
       </div>
       <NavLinks />
       <div className="mt-auto grid gap-3 border-t border-line p-3 xl:p-4">
