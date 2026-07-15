@@ -10,11 +10,10 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   return (
     <form action={action} className="panel grid w-full max-w-md gap-5 p-5 sm:p-6">
-      <div className="grid gap-4">
+      <div className="grid justify-items-center gap-4 text-center">
         <SignSealLogo />
         <div>
           <h1 className="text-2xl font-semibold">SignSeal IQ</h1>
-          <p className="mt-1 text-sm text-steel">Internal pricing and business management</p>
         </div>
       </div>
       {state?.error ? <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{state.error}</p> : null}
@@ -39,7 +38,6 @@ export function LoginForm() {
       <button className="button" disabled={pending}>
         <LogIn size={16} /> {pending ? "Signing in" : "Sign in"}
       </button>
-      <p className="text-xs text-steel">No public registration. Users are created by an administrator.</p>
     </form>
   );
 }
