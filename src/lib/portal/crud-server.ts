@@ -22,7 +22,7 @@ function dateInput(value: unknown) { return value ? new Date(String(value)).toIS
 function hashToken(token: string) { return crypto.createHash("sha256").update(token).digest("hex"); }
 export function portalInviteUrl(token: string) {
   const base = process.env.APP_URL?.replace(/\/$/, "") || "http://localhost:3000";
-  return `${base}/portal/invite/${token}`;
+  return `${base}/portal-invite/${token}`;
 }
 function previewToken(token: string) { return `${token.slice(0, 8)}...${token.slice(-6)}`; }
 
@@ -171,4 +171,5 @@ async function createDefaultProjectStages(projectId: string) {
 async function createDefaultSiteTimeline(siteId: string) {
   await Promise.all(defaultProjectStages.map((label, index) => prisma.clientSiteTimeline.create({ data: { siteId, label, sortOrder: index + 1 } })));
 }
+
 
