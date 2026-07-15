@@ -1,4 +1,4 @@
-﻿import { EmailTemplateEvent, PrismaClient, Role } from "@prisma/client";
+import { EmailTemplateEvent, PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -192,12 +192,25 @@ async function main() {
       });
     }
 
+    const site = await prisma.clientSite.upsert({
+      where: { id: `seed-site-hearts-${index + 1}` },
+      update: { projectId: project.id, progress: Math.min(90, (index + 2) * 12) },
+      create: { id: `seed-site-hearts-${index + 1}`, projectId: project.id, name, status: index < 2 ? "ARTWORK" : "SITE_SURVEY", address: `${name}\nEssex`, contactName: "School Office", notes: "Client-visible demo site notes.", internalNotes: "Internal-only site notes.", progress: Math.min(90, (index + 2) * 12) }
+    });
+    for (const [stageIndex, label] of portalStages.entries()) {
+      await prisma.clientSiteTimeline.upsert({
+        where: { siteId_sortOrder: { siteId: site.id, sortOrder: stageIndex + 1 } },
+        update: { label, completedAt: stageIndex <= Math.min(index + 1, 4) ? new Date() : null },
+        create: { siteId: site.id, label, sortOrder: stageIndex + 1, completedAt: stageIndex <= Math.min(index + 1, 4) ? new Date() : null }
+      });
+    }
+
     await prisma.portalProjectMessage.deleteMany({ where: { projectId: project.id, senderName: "SignSeal Projects" } });
     await prisma.clientActionRequest.deleteMany({ where: { projectId: project.id, title: "Confirm site access" } });
     await prisma.portalDocument.deleteMany({ where: { projectId: project.id, storageKey: `demo/hearts/${index + 1}/proof-v1.pdf` } });
-    await prisma.portalProjectMessage.create({ data: { projectId: project.id, senderName: "SignSeal Projects", body: `Initial portal record created for ${name}.`, visibility: "CLIENT_VISIBLE" } });
-    await prisma.clientActionRequest.create({ data: { projectId: project.id, title: "Confirm site access", description: "Please confirm visitor access requirements and any restricted installation windows.", dueDate: new Date("2026-03-01T00:00:00.000Z"), status: "OPEN" } });
-    await prisma.portalDocument.create({ data: { projectId: project.id, filename: `${name} artwork proof v1.pdf`, contentType: "application/pdf", sizeBytes: 1024, storageKey: `demo/hearts/${index + 1}/proof-v1.pdf`, type: "ARTWORK_PROOF", visibility: "CLIENT_VISIBLE", version: 1, description: "Demo artwork proof metadata only." } });
+    await prisma.portalProjectMessage.create({ data: { projectId: project.id, siteId: site.id, senderName: "SignSeal Projects", body: `Initial portal record created for ${name}.`, visibility: "CLIENT_VISIBLE" } });
+    await prisma.clientActionRequest.create({ data: { projectId: project.id, siteId: site.id, title: "Confirm site access", description: "Please confirm visitor access requirements and any restricted installation windows.", dueDate: new Date("2026-03-01T00:00:00.000Z"), status: "OPEN" } });
+    await prisma.portalDocument.create({ data: { projectId: project.id, siteId: site.id, filename: `${name} artwork proof v1.pdf`, contentType: "application/pdf", sizeBytes: 1024, storageKey: `demo/hearts/${index + 1}/proof-v1.pdf`, type: "ARTWORK_PROOF", visibility: "CLIENT_VISIBLE", version: 1, description: "Demo artwork proof metadata only." } });
   }
 
   await prisma.clientInvitation.upsert({
@@ -227,6 +240,7 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
+
 
 
 

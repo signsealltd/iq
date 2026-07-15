@@ -38,6 +38,7 @@ export async function getAuthorisedProject(projectId: string) {
     include: {
       programme: { include: { customer: true } },
       stages: { orderBy: { sortOrder: "asc" } },
+      sites: { where: { archivedAt: null }, include: { timeline: { orderBy: { sortOrder: "asc" } }, documents: { orderBy: [{ type: "asc" }, { version: "desc" }] }, messages: { orderBy: { createdAt: "desc" } }, artworkApprovals: { orderBy: { createdAt: "desc" } }, actionRequests: { orderBy: [{ status: "asc" }, { dueDate: "asc" }] } }, orderBy: { name: "asc" } },
       messages: { orderBy: { createdAt: "desc" }, include: { sender: true } },
       documents: { orderBy: [{ type: "asc" }, { version: "desc" }] },
       artworkApprovals: { orderBy: { createdAt: "desc" } },
@@ -47,6 +48,13 @@ export async function getAuthorisedProject(projectId: string) {
   if (!project || !canAccessProject(user, project.programme.customerId)) notFound();
   const visibleMessages = project.messages.filter((message) => canSeeVisibility(user, message.visibility));
   const visibleDocuments = project.documents.filter((document) => canSeeVisibility(user, document.visibility));
-  return { user, project: { ...project, messages: visibleMessages, documents: visibleDocuments } };
+  const visibleSites = project.sites.map((site) => ({
+    ...site,
+    messages: site.messages.filter((message) => canSeeVisibility(user, message.visibility)),
+    documents: site.documents.filter((document) => canSeeVisibility(user, document.visibility))
+  }));
+  return { user, project: { ...project, messages: visibleMessages, documents: visibleDocuments, sites: visibleSites } };
 }
+
+
 

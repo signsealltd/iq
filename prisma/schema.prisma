@@ -491,6 +491,7 @@ model ClientProgramme {
   summary                  String?               @db.Text
   status                   PortalProgrammeStatus @default(PLANNING)
   targetCompletionDate     DateTime?
+  archivedAt               DateTime?
   internalProjectManagerId String?
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
@@ -533,10 +534,12 @@ model ClientProject {
   installationStatus PortalInstallationStatus @default(NOT_SCHEDULED)
   notes              String?                  @db.Text
   internalNotes      String?                  @db.Text
+  archivedAt         DateTime?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
   programme          ClientProgramme          @relation(fields: [programmeId], references: [id], onDelete: Cascade)
   stages             ProjectStage[]
+  sites              ClientSite[]
   messages           PortalProjectMessage[]
   documents          PortalDocument[]
   artworkApprovals   ArtworkApproval[]
@@ -545,6 +548,47 @@ model ClientProject {
 
   @@index([programmeId])
   @@index([status])
+}
+
+model ClientSite {
+  id               String              @id @default(cuid())
+  projectId        String
+  name             String
+  status           PortalProjectStatus @default(INITIAL_ENQUIRY)
+  address          String?             @db.Text
+  contactName      String?
+  contactEmail     String?
+  contactPhone     String?
+  notes            String?             @db.Text
+  internalNotes    String?             @db.Text
+  progress         Int                 @default(0)
+  archivedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  project          ClientProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeline         ClientSiteTimeline[]
+  messages         PortalProjectMessage[]
+  documents        PortalDocument[]
+  artworkApprovals ArtworkApproval[]
+  actionRequests   ClientActionRequest[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model ClientSiteTimeline {
+  id          String     @id @default(cuid())
+  siteId      String
+  label       String
+  description String?    @db.Text
+  sortOrder   Int
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  site        ClientSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, sortOrder])
+  @@index([siteId])
 }
 
 model ProjectStage {
@@ -566,21 +610,25 @@ model ProjectStage {
 model PortalProjectMessage {
   id         String                  @id @default(cuid())
   projectId  String
+  siteId     String?
   senderId   String?
   senderName String
   body       String                  @db.Text
   visibility PortalMessageVisibility @default(CLIENT_VISIBLE)
   createdAt  DateTime                @default(now())
   project    ClientProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  site       ClientSite?              @relation(fields: [siteId], references: [id], onDelete: Cascade)
   sender     User?                   @relation(fields: [senderId], references: [id])
 
   @@index([projectId, visibility])
+  @@index([siteId, visibility])
   @@index([senderId])
 }
 
 model PortalDocument {
   id           String                  @id @default(cuid())
   projectId    String
+  siteId       String?
   filename     String
   contentType  String
   sizeBytes    Int
@@ -592,16 +640,19 @@ model PortalDocument {
   uploadedById String?
   createdAt    DateTime                @default(now())
   project      ClientProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  site         ClientSite?              @relation(fields: [siteId], references: [id], onDelete: Cascade)
   uploadedBy   User?                   @relation(fields: [uploadedById], references: [id])
   approvals    ArtworkApproval[]
 
   @@index([projectId, type])
+  @@index([siteId, type])
   @@index([visibility])
 }
 
 model ArtworkApproval {
   id              String                @id @default(cuid())
   projectId       String
+  siteId          String?
   documentId      String?
   proofVersion    Int                   @default(1)
   status          ArtworkApprovalStatus @default(PENDING)
@@ -611,30 +662,36 @@ model ArtworkApproval {
   checksConfirmed Boolean               @default(false)
   createdAt       DateTime              @default(now())
   project         ClientProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  site            ClientSite?           @relation(fields: [siteId], references: [id], onDelete: Cascade)
   document        PortalDocument?       @relation(fields: [documentId], references: [id])
   approver        User?                 @relation(fields: [approverUserId], references: [id])
 
   @@index([projectId, status])
+  @@index([siteId, status])
   @@index([documentId])
 }
 
 model ClientActionRequest {
   id             String             @id @default(cuid())
   projectId      String
+  siteId         String?
   title          String
   description    String?            @db.Text
   dueDate        DateTime?
   status         ClientActionStatus @default(OPEN)
   assignedUserId String?
   completionDate DateTime?
+  archivedAt      DateTime?
   createdById    String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   project        ClientProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  site           ClientSite?        @relation(fields: [siteId], references: [id], onDelete: Cascade)
   assignedUser   User?              @relation("AssignedPortalActions", fields: [assignedUserId], references: [id])
   createdBy      User?              @relation("CreatedPortalActions", fields: [createdById], references: [id])
 
   @@index([projectId, status])
+  @@index([siteId, status])
   @@index([assignedUserId])
 }
 
@@ -698,6 +755,7 @@ model PortalNotification {
   projectId  String?
   payload    Json?
   error      String?                  @db.Text
+  archivedAt DateTime?
   createdAt  DateTime                 @default(now())
   sentAt     DateTime?
   user       User?                    @relation(fields: [userId], references: [id])
@@ -708,3 +766,6 @@ model PortalNotification {
   @@index([customerId])
   @@index([projectId])
 }
+
+
+

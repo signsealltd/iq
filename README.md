@@ -188,13 +188,13 @@ Set `OPENAI_API_KEY` and optionally `OPENAI_MODEL`. The app sends structured job
 
 ## Client Project Portal
 
-SignSeal IQ includes a secure client-facing project portal for multi-site signage programmes. Internal users manage portal records from `Clients & Portal`; client users authenticate through the normal login flow and are redirected to `/portal`.
+SignSeal IQ includes a secure client-facing project portal for multi-site signage programmes. Internal users manage portal records from `Clients & Portal`; client users authenticate through the normal login flow and are redirected to `/portal`. The internal portal module includes CRUD screens for clients, programmes, projects, sites, client users/invitations, action requests, activity and email templates, plus a step-by-step portal creation wizard.
 
 Portal data model highlights:
 
 - Portal-enabled customers, client users and secure invitation/reset-token tables.
-- Programmes grouping multiple client projects/sites.
-- Per-project status, timeline stages, documents, messages, artwork approvals and action requests.
+- Programmes grouping multiple client projects, with each project containing one or more Sites.
+- Per-project and per-site status, timeline/progress, documents, messages, artwork approvals and action requests.
 - Client-visible versus internal-only visibility on messages and documents.
 - Email templates and notification queue records for invitations, project updates, artwork proofs, approvals, uploads, installation confirmations and assigned action requests.
 - Audit hooks for portal messages, approvals and action completion.
@@ -262,3 +262,4 @@ npm run build
 - Attachment upload storage with antivirus scanning.
 - Encrypted settings editor for QuickBooks secrets.
 - Semantic similar-job search or embeddings.
+

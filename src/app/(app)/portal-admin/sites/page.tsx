@@ -3,5 +3,5 @@
 export const dynamic = 'force-dynamic';
 
 export default function Page() {
-  return <PortalCrudPage resourceKey="clients" />;
+  return <PortalCrudPage resourceKey="sites" />;
 }

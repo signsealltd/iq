@@ -1,7 +1,7 @@
-﻿import { PortalAdminListPage } from '@/lib/portal/admin-pages';
+﻿import { PortalCrudPage } from '@/components/PortalCrudPage';
 
 export const dynamic = 'force-dynamic';
 
 export default function Page() {
-  return <PortalAdminListPage kind="users" />;
+  return <PortalCrudPage resourceKey="users" />;
 }

@@ -34,6 +34,15 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </div>
         </section>
 
+
+        <section className="panel p-4">
+          <h2 className="font-semibold">Sites</h2>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {project.sites.map((site) => <article key={site.id} className="rounded-md border border-line bg-elevated p-3"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{site.name}</p><p className="text-sm text-steel">{site.address ?? "Address pending"}</p></div><span className="text-xs text-steel">{formatPortalStatus(site.status)}</span></div><div className="mt-3 h-2 rounded-full bg-panel"><div className="h-2 rounded-full bg-accent" style={{ width: `${site.progress}%` }} /></div><p className="mt-2 text-xs text-steel">{site.progress}% progress - {site.documents.length} files - {site.messages.length} messages - {site.artworkApprovals.length} approvals</p><div className="mt-3 grid gap-1 text-xs text-steel">{site.timeline.filter((item) => item.completedAt).slice(0, 3).map((item) => <span key={item.id}>{item.label}: {item.completedAt?.toLocaleDateString("en-GB")}</span>)}</div></article>)}
+            {!project.sites.length ? <p className="text-sm text-steel">No sites have been added to this project yet.</p> : null}
+          </div>
+        </section>
+
         <section className="panel p-4">
           <h2 className="font-semibold">Messages</h2>
           <div className="mt-3 grid gap-3">
@@ -81,3 +90,5 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
 function Card({ label, value }: { label: string; value: string }) {
   return <div className="panel p-4"><p className="text-sm text-steel">{label}</p><p className="mt-1 font-semibold">{value}</p></div>;
 }
+
+
