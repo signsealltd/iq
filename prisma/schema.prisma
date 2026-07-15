@@ -11,6 +11,8 @@ enum Role {
   ADMIN
   DIRECTOR
   ESTIMATOR
+  STAFF
+  CLIENT
   PRODUCTION
   INSTALLER
   READ_ONLY
@@ -81,6 +83,19 @@ model User {
   updatedAt    DateTime   @updatedAt
   sessions     Session[]
   auditLogs    AuditLog[]
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  managedProgrammes ClientProgramme[] @relation("ProgrammeManager")
+  programmeAccess ClientProgrammeContact[]
+  portalMessages PortalProjectMessage[]
+  portalDocuments PortalDocument[]
+  artworkApprovals ArtworkApproval[]
+  assignedPortalActions ClientActionRequest[] @relation("AssignedPortalActions")
+  createdPortalActions ClientActionRequest[] @relation("CreatedPortalActions")
+  sentInvitations ClientInvitation[] @relation("SentInvitations")
+  passwordResetTokens PasswordResetToken[]
+  twoFactor UserTwoFactor?
+  portalNotifications PortalNotification[]
 }
 
 model Session {
@@ -111,6 +126,11 @@ model Customer {
   updatedAt                DateTime     @updatedAt
   quotes                   Quote[]
   jobs                     Job[]
+  portalEnabled            Boolean      @default(false)
+  portalUsers              User[]
+  programmes               ClientProgramme[]
+  clientInvitations        ClientInvitation[]
+  portalNotifications      PortalNotification[]
 }
 
 model Supplier {
@@ -352,4 +372,339 @@ model AuditLog {
   ipAddress String?
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id])
+}
+
+enum PortalProgrammeStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum PortalProjectStatus {
+  INITIAL_ENQUIRY
+  SITE_SURVEY
+  QUOTATION
+  ARTWORK
+  CLIENT_APPROVAL
+  PRODUCTION
+  INSTALLATION_SCHEDULED
+  INSTALLED
+  COMPLETE
+  ON_HOLD
+}
+
+enum PortalQuoteStatus {
+  NOT_STARTED
+  DRAFT
+  SENT
+  ACCEPTED
+  CHANGES_REQUESTED
+}
+
+enum PortalArtworkStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PROOF_SENT
+  APPROVED
+  AMENDMENTS_REQUESTED
+}
+
+enum PortalProductionStatus {
+  NOT_STARTED
+  READY
+  IN_PROGRESS
+  COMPLETE
+}
+
+enum PortalInstallationStatus {
+  NOT_SCHEDULED
+  SCHEDULED
+  IN_PROGRESS
+  INSTALLED
+  COMPLETE
+}
+
+enum PortalMessageVisibility {
+  CLIENT_VISIBLE
+  INTERNAL_ONLY
+}
+
+enum PortalDocumentType {
+  SITE_SURVEY
+  PHOTOGRAPHS
+  QUOTATION
+  ARTWORK_PROOF
+  APPROVAL
+  PURCHASE_ORDER
+  INVOICE
+  INSTALLATION_DOCUMENTATION
+  COMPLETION_PHOTOGRAPHS
+  OTHER
+}
+
+enum ArtworkApprovalStatus {
+  PENDING
+  APPROVED
+  AMENDMENTS_REQUESTED
+  SUPERSEDED
+}
+
+enum ClientActionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum ClientInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum EmailTemplateEvent {
+  CLIENT_INVITATION
+  CLIENT_VISIBLE_MESSAGE
+  NEW_ARTWORK_PROOF
+  APPROVAL_REQUESTED
+  AMENDMENT_REQUESTED
+  DOCUMENT_UPLOADED
+  INSTALLATION_DATE_CONFIRMED
+  CLIENT_ACTION_REQUEST_ASSIGNED
+}
+
+enum PortalNotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  SUPPRESSED
+}
+
+model ClientProgramme {
+  id                       String                @id @default(cuid())
+  customerId               String
+  name                     String
+  summary                  String?               @db.Text
+  status                   PortalProgrammeStatus @default(PLANNING)
+  targetCompletionDate     DateTime?
+  internalProjectManagerId String?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  customer                 Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  internalProjectManager   User?                 @relation("ProgrammeManager", fields: [internalProjectManagerId], references: [id])
+  contacts                 ClientProgrammeContact[]
+  projects                 ClientProject[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model ClientProgrammeContact {
+  id          String          @id @default(cuid())
+  programmeId String
+  userId      String
+  createdAt   DateTime        @default(now())
+  programme   ClientProgramme @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([programmeId, userId])
+  @@index([userId])
+}
+
+model ClientProject {
+  id                 String                   @id @default(cuid())
+  programmeId        String
+  name               String
+  status             PortalProjectStatus      @default(INITIAL_ENQUIRY)
+  siteAddress        String?                  @db.Text
+  siteContactName    String?
+  siteContactEmail   String?
+  siteContactPhone   String?
+  description        String?                  @db.Text
+  surveyDate         DateTime?
+  targetDate         DateTime?
+  quoteStatus        PortalQuoteStatus        @default(NOT_STARTED)
+  artworkStatus      PortalArtworkStatus      @default(NOT_STARTED)
+  productionStatus   PortalProductionStatus   @default(NOT_STARTED)
+  installationStatus PortalInstallationStatus @default(NOT_SCHEDULED)
+  notes              String?                  @db.Text
+  internalNotes      String?                  @db.Text
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  programme          ClientProgramme          @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  stages             ProjectStage[]
+  messages           PortalProjectMessage[]
+  documents          PortalDocument[]
+  artworkApprovals   ArtworkApproval[]
+  actionRequests     ClientActionRequest[]
+  notifications      PortalNotification[]
+
+  @@index([programmeId])
+  @@index([status])
+}
+
+model ProjectStage {
+  id          String        @id @default(cuid())
+  projectId   String
+  label       String
+  sortOrder   Int
+  enabled     Boolean       @default(true)
+  completedAt DateTime?
+  renamedFrom String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  project     ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, sortOrder])
+  @@index([projectId])
+}
+
+model PortalProjectMessage {
+  id         String                  @id @default(cuid())
+  projectId  String
+  senderId   String?
+  senderName String
+  body       String                  @db.Text
+  visibility PortalMessageVisibility @default(CLIENT_VISIBLE)
+  createdAt  DateTime                @default(now())
+  project    ClientProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender     User?                   @relation(fields: [senderId], references: [id])
+
+  @@index([projectId, visibility])
+  @@index([senderId])
+}
+
+model PortalDocument {
+  id           String                  @id @default(cuid())
+  projectId    String
+  filename     String
+  contentType  String
+  sizeBytes    Int
+  storageKey   String
+  type         PortalDocumentType      @default(OTHER)
+  visibility   PortalMessageVisibility @default(CLIENT_VISIBLE)
+  version      Int                     @default(1)
+  description  String?                 @db.Text
+  uploadedById String?
+  createdAt    DateTime                @default(now())
+  project      ClientProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy   User?                   @relation(fields: [uploadedById], references: [id])
+  approvals    ArtworkApproval[]
+
+  @@index([projectId, type])
+  @@index([visibility])
+}
+
+model ArtworkApproval {
+  id              String                @id @default(cuid())
+  projectId       String
+  documentId      String?
+  proofVersion    Int                   @default(1)
+  status          ArtworkApprovalStatus @default(PENDING)
+  approverName    String
+  approverUserId  String?
+  comments        String?               @db.Text
+  checksConfirmed Boolean               @default(false)
+  createdAt       DateTime              @default(now())
+  project         ClientProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  document        PortalDocument?       @relation(fields: [documentId], references: [id])
+  approver        User?                 @relation(fields: [approverUserId], references: [id])
+
+  @@index([projectId, status])
+  @@index([documentId])
+}
+
+model ClientActionRequest {
+  id             String             @id @default(cuid())
+  projectId      String
+  title          String
+  description    String?            @db.Text
+  dueDate        DateTime?
+  status         ClientActionStatus @default(OPEN)
+  assignedUserId String?
+  completionDate DateTime?
+  createdById    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  project        ClientProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedUser   User?              @relation("AssignedPortalActions", fields: [assignedUserId], references: [id])
+  createdBy      User?              @relation("CreatedPortalActions", fields: [createdById], references: [id])
+
+  @@index([projectId, status])
+  @@index([assignedUserId])
+}
+
+model ClientInvitation {
+  id          String                 @id @default(cuid())
+  customerId  String
+  email       String
+  name        String?
+  tokenHash   String                 @unique
+  expiresAt   DateTime
+  status      ClientInvitationStatus @default(PENDING)
+  invitedById String?
+  acceptedAt  DateTime?
+  createdAt   DateTime               @default(now())
+  customer    Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invitedBy   User?                  @relation("SentInvitations", fields: [invitedById], references: [id])
+
+  @@index([customerId, email])
+  @@index([status])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UserTwoFactor {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  enabled         Boolean  @default(false)
+  secretEncrypted String?  @db.Text
+  recoveryCodes   Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailTemplate {
+  id        String             @id @default(cuid())
+  event     EmailTemplateEvent @unique
+  subject   String
+  body      String             @db.Text
+  active    Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
+model PortalNotification {
+  id         String                   @id @default(cuid())
+  event      EmailTemplateEvent
+  status     PortalNotificationStatus @default(QUEUED)
+  userId     String?
+  customerId String?
+  projectId  String?
+  payload    Json?
+  error      String?                  @db.Text
+  createdAt  DateTime                 @default(now())
+  sentAt     DateTime?
+  user       User?                    @relation(fields: [userId], references: [id])
+  customer   Customer?                @relation(fields: [customerId], references: [id])
+  project    ClientProject?           @relation(fields: [projectId], references: [id])
+
+  @@index([event, status])
+  @@index([customerId])
+  @@index([projectId])
 }

@@ -34,12 +34,12 @@ export async function destroySession() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export async function currentUser(): Promise<Pick<User, "id" | "email" | "name" | "role" | "active"> | null> {
+export async function currentUser(): Promise<Pick<User, "id" | "email" | "name" | "role" | "active" | "customerId"> | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { user: { select: { id: true, email: true, name: true, role: true, active: true } } }
+    include: { user: { select: { id: true, email: true, name: true, role: true, active: true, customerId: true } } }
   });
   if (!session || session.expiresAt < new Date() || !session.user.active) return null;
   return session.user;
@@ -87,3 +87,4 @@ export function can(role: Role, action: "writePricing" | "manageUsers" | "conver
   };
   return matrix[action].includes(role);
 }
+
