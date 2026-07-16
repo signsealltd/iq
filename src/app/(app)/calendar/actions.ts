@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 const internalRoles = ["ADMIN", "DIRECTOR", "ESTIMATOR", "STAFF", "PRODUCTION", "INSTALLER"] as const;
 const statuses = ["PLANNED", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
+const businessTimeZone = "Europe/London";
 
 type ScheduleInput = {
   id?: string;
@@ -32,9 +33,9 @@ export async function saveScheduleEvent(input: ScheduleInput) {
   if (!title) throw new Error("Enter a title for the scheduled work.");
   if (!input.startAt) throw new Error("Choose when the work starts.");
 
-  const startAt = new Date(input.startAt);
+  const startAt = parseBusinessDateTime(input.startAt);
   if (Number.isNaN(startAt.getTime())) throw new Error("Choose a valid start date and time.");
-  const endAt = input.endAt ? new Date(input.endAt) : null;
+  const endAt = input.endAt ? parseBusinessDateTime(input.endAt) : null;
   if (endAt && Number.isNaN(endAt.getTime())) throw new Error("Choose a valid end date and time.");
 
   const customerId = cleanId(input.customerId);
@@ -85,6 +86,31 @@ export async function deleteScheduleEvent(id: string) {
   return id;
 }
 
+
+function parseBusinessDateTime(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value);
+  if (!match) return new Date(value);
+  const [, year, month, day, hour, minute] = match.map(Number);
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const offsetMinutes = timeZoneOffsetMinutes(utcGuess, businessTimeZone);
+  return new Date(utcGuess.getTime() - offsetMinutes * 60000);
+}
+
+function timeZoneOffsetMinutes(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, Number(part.value)]));
+  const zonedAsUtc = Date.UTC(values.year, values.month - 1, values.day, values.hour, values.minute, values.second);
+  return (zonedAsUtc - date.getTime()) / 60000;
+}
 function cleanId(value?: string | null) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;

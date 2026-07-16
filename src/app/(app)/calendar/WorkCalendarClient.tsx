@@ -30,6 +30,7 @@ type UserOption = { id: string; name: string };
 type Draft = Omit<CalendarEvent, "id" | "googleCalendarEventId"> & { id?: string };
 
 const statuses = ["PLANNED", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+const businessTimeZone = "Europe/London";
 const statusClasses: Record<string, string> = {
   PLANNED: "border-line bg-elevated",
   CONFIRMED: "border-accent/50 bg-accent/15",
@@ -213,17 +214,26 @@ function startOfDay(date: Date) {
 }
 
 function toDatetimeLocal(date: Date) {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: businessTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value.padStart(2, "0") ?? "00";
+  return `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}`;
 }
 
 function timeLabel(event: CalendarEvent) {
   if (event.allDay) return "All day";
-  return new Date(event.startAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return new Date(event.startAt).toLocaleTimeString("en-GB", { timeZone: businessTimeZone, hour: "2-digit", minute: "2-digit" });
 }
 
 function formatEventDate(event: CalendarEvent) {
-  const options: Intl.DateTimeFormatOptions = event.allDay ? { dateStyle: "medium" } : { dateStyle: "medium", timeStyle: "short" };
+  const options: Intl.DateTimeFormatOptions = event.allDay ? { timeZone: businessTimeZone, dateStyle: "medium" } : { timeZone: businessTimeZone, dateStyle: "medium", timeStyle: "short" };
   return new Date(event.startAt).toLocaleString("en-GB", options);
 }
 
