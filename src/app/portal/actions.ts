@@ -1,6 +1,6 @@
 "use server";
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -82,6 +82,34 @@ export async function uploadPortalDocument(formData: FormData) {
   revalidatePath("/portal");
 }
 
+
+export async function deletePortalMessage(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  const messageId = String(formData.get("messageId") ?? "");
+  const { user, project } = await getAuthorisedProject(projectId);
+  if (!isInternalPortalRole(user.role)) redirect("/forbidden");
+  if (!project.messages.some((message) => message.id === messageId)) redirect(`/portal/projects/${projectId}?error=${encodeURIComponent("Message not found on this project.")}` as never);
+
+  await prisma.portalProjectMessage.delete({ where: { id: messageId } });
+  await audit("portal.message.deleted", "PortalProjectMessage", messageId, { projectId }, user.id);
+  revalidatePath(`/portal/projects/${projectId}`);
+  revalidatePath("/portal");
+}
+
+export async function deletePortalDocument(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  const documentId = String(formData.get("documentId") ?? "");
+  const { user, project } = await getAuthorisedProject(projectId);
+  if (!isInternalPortalRole(user.role)) redirect("/forbidden");
+  const document = project.documents.find((item) => item.id === documentId);
+  if (!document) redirect(`/portal/projects/${projectId}?error=${encodeURIComponent("Document not found on this project.")}` as never);
+
+  await prisma.portalDocument.delete({ where: { id: documentId } });
+  await deleteStoredPortalUpload(document.storageKey);
+  await audit("portal.document.deleted", "PortalDocument", documentId, { projectId, filename: document.filename }, user.id);
+  revalidatePath(`/portal/projects/${projectId}`);
+  revalidatePath("/portal");
+}
 export async function updatePortalProjectStatus(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "");
   const { user } = await getAuthorisedProject(projectId);
@@ -140,6 +168,22 @@ export async function completeActionRequest(formData: FormData) {
   revalidatePath("/portal");
 }
 
+
+async function deleteStoredPortalUpload(storageKey: string) {
+  const filePath = resolvePortalUpload(storageKey);
+  if (!filePath) return;
+  await unlink(filePath).catch(() => undefined);
+}
+
+function resolvePortalUpload(storageKey: string) {
+  if (!storageKey.startsWith("/uploads/portal/")) return null;
+
+  const publicRoot = path.resolve(process.cwd(), "public");
+  const uploadsRoot = path.resolve(publicRoot, "uploads", "portal");
+  const resolved = path.resolve(publicRoot, `.${storageKey}`);
+  if (resolved !== uploadsRoot && !resolved.startsWith(`${uploadsRoot}${path.sep}`)) return null;
+  return resolved;
+}
 function pick<T extends readonly string[]>(formData: FormData, key: string, values: T): T[number] {
   const value = String(formData.get(key) ?? "");
   return values.includes(value) ? value : values[0];

@@ -1,4 +1,5 @@
-import { completeActionRequest, postPortalMessage, recordArtworkApproval, updatePortalProjectStatus, updatePortalSiteStatus, uploadPortalDocument } from "@/app/portal/actions";
+import { completeActionRequest, deletePortalDocument, deletePortalMessage, postPortalMessage, recordArtworkApproval, updatePortalProjectStatus, updatePortalSiteStatus, uploadPortalDocument } from "@/app/portal/actions";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { getAuthorisedProject } from "@/lib/portal/authz";
 import { formatPortalStatus } from "@/lib/portal/stages";
 import { isInternalPortalRole } from "@/lib/portal/security";
@@ -78,7 +79,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <section className="panel p-4">
           <h2 className="font-semibold">Messages</h2>
           <div className="mt-3 grid gap-3">
-            {project.messages.map((message) => <article key={message.id} className="rounded-md border border-line bg-elevated p-3"><div className="flex flex-wrap justify-between gap-2 text-sm"><strong>{message.senderName}</strong><span className="text-steel">{message.createdAt.toLocaleString("en-GB")} - {formatPortalStatus(message.visibility)}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-steel">{message.body}</p></article>)}
+            {project.messages.map((message) => <article key={message.id} className="rounded-md border border-line bg-elevated p-3"><div className="flex flex-wrap justify-between gap-2 text-sm"><strong>{message.senderName}</strong><span className="text-steel">{message.createdAt.toLocaleString("en-GB")} - {formatPortalStatus(message.visibility)}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-steel">{message.body}</p>{isInternal ? <form action={deletePortalMessage} className="mt-3"><input type="hidden" name="projectId" value={project.id} /><input type="hidden" name="messageId" value={message.id} /><ConfirmSubmitButton className="button-secondary min-h-9 px-3 text-danger" message="Delete this portal message permanently?">Delete message</ConfirmSubmitButton></form> : null}</article>)}
             {!project.messages.length ? <p className="text-sm text-steel">No messages yet.</p> : null}
           </div>
           <form action={postPortalMessage} className="mt-4 grid gap-2">
@@ -102,7 +103,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <section className="panel p-4">
           <h2 className="font-semibold">Documents</h2>
           <div className="mt-3 grid gap-2">
-            {project.documents.map((document) => <div key={document.id} className="rounded-md border border-line bg-elevated p-3"><p className="font-semibold">{document.filename}</p><p className="text-sm text-steel">{formatPortalStatus(document.type)} - v{document.version}</p><p className="text-xs text-steel">{document.description ?? "No description"}</p>{document.storageKey.startsWith("/uploads/portal/") ? <a className="mt-2 inline-flex text-sm font-semibold text-accent hover:underline" href={`/api/portal/documents/${document.id}/download`} target="_blank" rel="noreferrer">Open document</a> : null}</div>)}
+            {project.documents.map((document) => <div key={document.id} className="rounded-md border border-line bg-elevated p-3"><p className="font-semibold">{document.filename}</p><p className="text-sm text-steel">{formatPortalStatus(document.type)} - v{document.version}</p><p className="text-xs text-steel">{document.description ?? "No description"}</p><div className="mt-2 flex flex-wrap items-center gap-2">{document.storageKey.startsWith("/uploads/portal/") ? <a className="inline-flex text-sm font-semibold text-accent hover:underline" href={`/api/portal/documents/${document.id}/download`} target="_blank" rel="noreferrer">Open document</a> : null}{isInternal ? <form action={deletePortalDocument}><input type="hidden" name="projectId" value={project.id} /><input type="hidden" name="documentId" value={document.id} /><ConfirmSubmitButton className="button-secondary min-h-9 px-3 text-danger" message="Remove this portal document permanently?">Remove document</ConfirmSubmitButton></form> : null}</div></div>)}
             {!project.documents.length ? <p className="text-sm text-steel">No client-visible documents yet.</p> : null}
           </div>
           <form action={uploadPortalDocument} className="mt-4 grid gap-2 border-t border-line pt-4 text-sm">
