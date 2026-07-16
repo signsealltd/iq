@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArrowDownUp, Copy, Edit3, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { Archive, ArrowDownUp, Copy, Edit3, FileUp, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import type { LookupOption, ManagementResource } from "@/lib/management/config";
 
@@ -9,6 +9,21 @@ type Row = Record<string, RowValue> & { id: string; archived?: boolean };
 type Payload = { rows: Row[]; lookups: Record<string, LookupOption[]> };
 
 type SortState = { key: string; direction: "asc" | "desc" };
+type CustomerImportRow = {
+  rowNumber: number;
+  company: string;
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+  action: "create" | "update" | "skip";
+  matchReason: string | null;
+  warnings: string[];
+};
+type CustomerImportPreview = {
+  rows: CustomerImportRow[];
+  summary: { total: number; create: number; update: number; skip: number };
+  imported?: { created: number; updated: number; skipped: number };
+};
 
 export function ManagementTable({ resource, initialRows, lookups }: { resource: ManagementResource; initialRows: Row[]; lookups: Record<string, LookupOption[]> }) {
   const [rows, setRows] = useState(initialRows);
@@ -64,6 +79,8 @@ export function ManagementTable({ resource, initialRows, lookups }: { resource: 
 
   return (
     <section className="grid gap-3">
+      {resource.key === "customers" ? <CustomerImportPanel onImported={(payload) => { setRows(payload.rows); setSelected([]); }} /> : null}
+
       <div className="panel grid gap-3 p-3 lg:grid-cols-[1fr_auto_auto] lg:items-center">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-steel" size={16} />
@@ -140,6 +157,93 @@ export function ManagementTable({ resource, initialRows, lookups }: { resource: 
   );
 }
 
+
+function CustomerImportPanel({ onImported }: { onImported: (payload: Payload) => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<CustomerImportPreview | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(mode: "preview" | "import") {
+    if (!file) {
+      setError("Choose a QuickBooks customer export first.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("mode", mode);
+    try {
+      const response = await fetch("/api/management/customers/import", { method: "POST", body: formData });
+      const data = await response.json() as CustomerImportPreview & Partial<Payload> & { error?: string };
+      if (!response.ok || data.error) throw new Error(data.error ?? "Unable to import customers.");
+      if (mode === "import") {
+        if (Array.isArray(data.rows) && data.lookups) onImported({ rows: data.rows, lookups: data.lookups });
+        setPreview(data);
+      } else {
+        setPreview(data);
+      }
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : "Unable to import customers.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="panel grid gap-3 p-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="font-semibold">QuickBooks customer import</h2>
+          <p className="text-sm text-steel">Upload the customer contact export, preview matches, then import new customers and fill blank fields on existing records.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="button-secondary cursor-pointer">
+            <FileUp size={16} /> {file ? file.name : "Choose file"}
+            <input className="sr-only" type="file" accept=".xlsx,.xls,.csv" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setPreview(null); setError(""); }} />
+          </label>
+          <button className="button-secondary" disabled={busy || !file} type="button" onClick={() => submit("preview")}>Preview</button>
+          <button className="button" disabled={busy || !file || !preview} type="button" onClick={() => submit("import")}>{busy ? "Working" : "Import customers"}</button>
+        </div>
+      </div>
+      {error ? <p className="rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">{error}</p> : null}
+      {preview ? (
+        <div className="grid gap-3">
+          <div className="grid gap-2 text-sm sm:grid-cols-4">
+            <ImportStat label="Rows" value={preview.summary.total} />
+            <ImportStat label="New" value={preview.summary.create} />
+            <ImportStat label="Updates" value={preview.summary.update} />
+            <ImportStat label="Skipped" value={preview.summary.skip} />
+          </div>
+          {preview.imported ? <p className="rounded-md border border-success/40 bg-success/10 p-3 text-sm text-success">Imported {preview.imported.created} new customers and updated {preview.imported.updated} existing customers.</p> : null}
+          <div className="table-wrap max-h-80 overflow-auto rounded-md border border-line">
+            <table>
+              <thead><tr><th>Row</th><th>Customer</th><th>Email</th><th>Phone</th><th>Action</th><th>Notes</th></tr></thead>
+              <tbody>
+                {preview.rows.slice(0, 25).map((row) => (
+                  <tr key={`${row.rowNumber}-${row.company}`}>
+                    <td>{row.rowNumber}</td>
+                    <td>{row.company || "-"}</td>
+                    <td>{row.email ?? "-"}</td>
+                    <td>{row.phone ?? "-"}</td>
+                    <td>{row.action}</td>
+                    <td>{[row.matchReason, ...row.warnings].filter(Boolean).join(" | ") || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {preview.rows.length > 25 ? <p className="text-xs text-steel">Showing the first 25 rows from the preview.</p> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ImportStat({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-md border border-line bg-elevated p-3"><p className="text-xs uppercase tracking-wide text-steel">{label}</p><p className="text-lg font-semibold">{value}</p></div>;
+}
 function newRecord(resource: ManagementResource): Row {
   const row: Row = { id: "" };
   for (const field of resource.fields) {
