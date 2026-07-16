@@ -102,7 +102,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <section className="panel p-4">
           <h2 className="font-semibold">Documents</h2>
           <div className="mt-3 grid gap-2">
-            {project.documents.map((document) => <div key={document.id} className="rounded-md border border-line bg-elevated p-3"><p className="font-semibold">{document.filename}</p><p className="text-sm text-steel">{formatPortalStatus(document.type)} - v{document.version}</p><p className="text-xs text-steel">{document.description ?? "No description"}</p>{document.storageKey.startsWith("/uploads/portal/") ? <a className="mt-2 inline-flex text-sm font-semibold text-accent hover:underline" href={document.storageKey} target="_blank" rel="noreferrer">Open document</a> : null}</div>)}
+            {project.documents.map((document) => <div key={document.id} className="rounded-md border border-line bg-elevated p-3"><p className="font-semibold">{document.filename}</p><p className="text-sm text-steel">{formatPortalStatus(document.type)} - v{document.version}</p><p className="text-xs text-steel">{document.description ?? "No description"}</p>{document.storageKey.startsWith("/uploads/portal/") ? <a className="mt-2 inline-flex text-sm font-semibold text-accent hover:underline" href={`/api/portal/documents/${document.id}/download`} target="_blank" rel="noreferrer">Open document</a> : null}</div>)}
             {!project.documents.length ? <p className="text-sm text-steel">No client-visible documents yet.</p> : null}
           </div>
           <form action={uploadPortalDocument} className="mt-4 grid gap-2 border-t border-line pt-4 text-sm">
