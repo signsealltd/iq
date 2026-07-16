@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { logoutAction } from "@/app/(app)/actions";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { SignSealLogo } from "@/components/SignSealLogo";
 
 export function PortalShell({ user, children }: { user: { name: string; role: string }; children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export function PortalShell({ user, children }: { user: { name: string; role: st
             <Link className="button-secondary" href={"/portal" as never}>Dashboard</Link>
             {user.role !== "CLIENT" ? <Link className="button-secondary" href={"/portal-admin" as never}>Internal admin</Link> : null}
             <span>{user.name}</span>
+            <InstallAppButton />
             <form action={logoutAction}>
               <button className="button-secondary min-h-9 px-3" type="submit">
                 <LogOut size={16} /> Log out
