@@ -96,6 +96,8 @@ model User {
   passwordResetTokens PasswordResetToken[]
   twoFactor UserTwoFactor?
   portalNotifications PortalNotification[]
+  createdWorkScheduleEvents WorkScheduleEvent[] @relation("WorkScheduleCreatedBy")
+  assignedWorkScheduleEvents WorkScheduleEvent[] @relation("WorkScheduleAssignedTo")
 }
 
 model Session {
@@ -131,6 +133,7 @@ model Customer {
   programmes               ClientProgramme[]
   clientInvitations        ClientInvitation[]
   portalNotifications      PortalNotification[]
+  workScheduleEvents       WorkScheduleEvent[]
 }
 
 model Supplier {
@@ -313,6 +316,7 @@ model Job {
   quote                Quote?    @relation(fields: [quoteId], references: [id])
   customer             Customer  @relation(fields: [customerId], references: [id])
   costs                JobCost[]
+  workScheduleEvents   WorkScheduleEvent[]
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 }
@@ -342,6 +346,50 @@ model AIRecommendation {
   quote          Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 }
 
+
+enum WorkScheduleStatus {
+  PLANNED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model WorkScheduleEvent {
+  id                    String             @id @default(cuid())
+  title                 String
+  status                WorkScheduleStatus @default(PLANNED)
+  startAt               DateTime
+  endAt                 DateTime?
+  allDay                Boolean            @default(false)
+  customerId            String?
+  customer              Customer?          @relation(fields: [customerId], references: [id])
+  jobId                 String?
+  job                   Job?               @relation(fields: [jobId], references: [id])
+  customerName          String?
+  jobReference          String?
+  location              String?            @db.Text
+  contactName           String?
+  contactEmail          String?
+  contactPhone          String?
+  assignedToId          String?
+  assignedTo            User?              @relation("WorkScheduleAssignedTo", fields: [assignedToId], references: [id])
+  notes                 String?            @db.Text
+  googleCalendarEventId String?
+  googleCalendarId      String?
+  lastSyncedAt          DateTime?
+  archivedAt            DateTime?
+  createdById           String?
+  createdBy             User?              @relation("WorkScheduleCreatedBy", fields: [createdById], references: [id])
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([startAt])
+  @@index([customerId])
+  @@index([jobId])
+  @@index([assignedToId])
+  @@index([status])
+}
 model Setting {
   id        String   @id @default(cuid())
   key       String   @unique

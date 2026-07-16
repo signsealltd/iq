@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calculator, BriefcaseBusiness, ClipboardList, Factory, FileText, Gauge, Home, LogOut, Menu, Settings, Truck, Users, Wrench, X } from "lucide-react";
+import { Calculator, BriefcaseBusiness, CalendarDays, ClipboardList, Factory, FileText, Gauge, Home, LogOut, Menu, Settings, Truck, Users, Wrench, X } from "lucide-react";
 import { useState } from "react";
 import { AppearanceToggle } from "@/components/AppearanceToggle";
 import { SignSealLogo } from "@/components/SignSealLogo";
@@ -15,6 +15,7 @@ const nav = [
   ["/customers", "Customers", Users],
   ["/portal-admin", "Clients & Portal", BriefcaseBusiness],
   ["/jobs", "Jobs", ClipboardList],
+  ["/calendar", "Calendar", CalendarDays],
   ["/pricing-matrix", "Pricing Matrix", Gauge],
   ["/materials", "Materials", Truck],
   ["/labour-rates", "Labour Rates", Wrench],
